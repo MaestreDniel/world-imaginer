@@ -1,0 +1,20 @@
+services:
+  noise-fundamentals:
+    build:
+      context: ./01-noise-fundamentals
+    container_name: noise_fundamentals
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./01-noise-fundamentals:/app
+      - noise_fundamentals_modules:/app/node_modules
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
+    name: maestre-web_app-network
+
+volumes:
+  noise_fundamentals_modules:

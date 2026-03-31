@@ -11,6 +11,18 @@ services:
     networks:
       - app-network
 
+  2d-terrain:
+    build:
+      context: ./02-2d-terrain
+    container_name: 2d_terrain
+    ports:
+      - "5175:5175"
+    volumes:
+      - ./02-2d-terrain:/app
+      - 2d_terrain_modules:/app/node_modules
+    networks:
+      - app-network
+
 networks:
   app-network:
     external: true
@@ -18,3 +30,4 @@ networks:
 
 volumes:
   noise_fundamentals_modules:
+  2d_terrain_modules:

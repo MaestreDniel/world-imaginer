@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01 - Noise Fundamentals</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+      gap: 1.5rem;
+    }
+    h1 { font-size: 1.5rem; }
+    .controls {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    label { font-size: 0.85rem; opacity: 0.8; }
+    input[type="range"] { width: 140px; }
+    canvas {
+      border: 1px solid #333;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+<body>
+  <h1>Noise Fundamentals</h1>
+  <div class="controls">
+    <div class="control">
+      <label for="scale">Scale: <span id="scale-val">50</span></label>
+      <input type="range" id="scale" min="5" max="200" value="50" />
+    </div>
+    <div class="control">
+      <label for="octaves">Octaves: <span id="octaves-val">4</span></label>
+      <input type="range" id="octaves" min="1" max="8" value="4" />
+    </div>
+    <div class="control">
+      <label for="persistence">Persistence: <span id="persistence-val">0.5</span></label>
+      <input type="range" id="persistence" min="0" max="100" value="50" />
+    </div>
+    <div class="control">
+      <label for="lacunarity">Lacunarity: <span id="lacunarity-val">2.0</span></label>
+      <input type="range" id="lacunarity" min="10" max="40" value="20" />
+    </div>
+  </div>
+  <canvas id="canvas" width="512" height="512"></canvas>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

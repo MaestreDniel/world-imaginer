@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>04 - 3D Voxel Terrain</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      gap: 1.2rem;
+      padding: 0.6rem 1rem;
+      background: #16213e;
+      flex-wrap: wrap;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+    .control {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.8rem;
+    }
+    label { opacity: 0.8; white-space: nowrap; }
+    input[type="range"] { width: 90px; }
+    input[type="number"] {
+      width: 70px;
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    button {
+      background: #e94560;
+      color: white;
+      border: none;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #c73e54; }
+    .legend {
+      display: flex;
+      gap: 0.8rem;
+      font-size: 0.75rem;
+      align-items: center;
+      padding: 0.4rem 1rem;
+      background: #16213e;
+      border-bottom: 1px solid #333;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #555;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .hud {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    canvas { display: block; }
+    .hint {
+      font-size: 0.7rem;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="control">
+      <label>Seed:</label>
+      <input type="number" id="seed" value="42" />
+    </div>
+    <div class="control">
+      <label>Render radius: <span id="radius-val">3</span></label>
+      <input type="range" id="radius" min="1" max="32" value="3" />
+    </div>
+    <button id="regenerate">Regenerate</button>
+    <span class="hint">Orbit: LMB &nbsp; Pan: RMB &nbsp; Zoom: Scroll</span>
+    <div class="hud">
+      Chunks: <span id="chunks-loaded">0</span> &nbsp;|&nbsp;
+      Pending: <span id="pending">0</span> &nbsp;|&nbsp;
+      FPS: <span id="fps">0</span>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="background:#4CAF50"></span>Grass</div>
+    <div class="legend-item"><span class="swatch" style="background:#8B5E3C"></span>Dirt</div>
+    <div class="legend-item"><span class="swatch" style="background:#808080"></span>Stone</div>
+    <div class="legend-item"><span class="swatch" style="background:#505050"></span>Deep</div>
+    <div class="legend-item"><span class="swatch" style="background:#2196F3"></span>Water</div>
+    <div class="legend-item"><span class="swatch" style="background:#EDC9AF"></span>Sand</div>
+    <div class="legend-item"><span class="swatch" style="background:#F0F0F0"></span>Snow</div>
+    <div class="legend-item"><span class="swatch" style="background:#333333"></span>Coal</div>
+    <div class="legend-item"><span class="swatch" style="background:#C19A6B"></span>Iron</div>
+  </div>
+  <canvas id="canvas"></canvas>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

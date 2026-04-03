@@ -39,7 +39,10 @@ export interface WorkerResponse {
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const { id, cx, cy, cz, config } = e.data;
 
+  const t0 = performance.now();
   const data = generateChunk(cx, cy, cz, config);
+  const t1 = performance.now();
+  if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
 
   // Self-contained meshing: treat out-of-chunk as air (block 0)
   const getNeighbor = (lx: number, ly: number, lz: number): number => {

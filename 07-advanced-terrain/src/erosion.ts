@@ -31,8 +31,8 @@ export interface ErosionConfig {
 }
 
 export const DEFAULT_EROSION: ErosionConfig = {
-  droplets: 2000,
-  maxLifetime: 64,
+  droplets: 1500,     // reduced from 2000 for better perf/quality balance
+  maxLifetime: 48,    // reduced from 64
   inertia: 0.3,
   erosionRate: 0.3,
   depositionRate: 0.3,

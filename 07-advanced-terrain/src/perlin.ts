@@ -120,5 +120,60 @@ export function createNoise(seed: number) {
     return value / maxAmp;
   }
 
-  return { perlin2D, perlin3D, fbm2D, fbm3D };
+  /**
+   * Voronoi / Worley noise — 2D.
+   *
+   * Divides the plane into a grid of cells. Each cell contains one
+   * pseudo-random feature point (jittered from cell center using the
+   * seeded permutation table). Returns the distance to the Nth closest
+   * feature point (n=0 → closest, n=1 → second closest).
+   *
+   * Common uses:
+   * - F1 (n=0): rounded cell shapes — continent blobs, biome territories
+   * - F2-F1 (difference): Voronoi edges — river networks, cracks
+   */
+  function voronoi2D(x: number, y: number): { f1: number; f2: number; cellX: number; cellY: number } {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+
+    let f1 = 1e10;
+    let f2 = 1e10;
+    let nearestCellX = 0;
+    let nearestCellY = 0;
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = xi + dx;
+        const cy = yi + dy;
+
+        // Deterministic jitter from permutation table
+        const h = p[((cx & 255) + p[(cy & 255)]) & 511];
+        const jx = (h & 15) / 15.0;        // 0..1
+        const jy = ((h >> 4) & 15) / 15.0; // 0..1
+
+        const fx = cx + jx;
+        const fy = cy + jy;
+
+        const distSq = (x - fx) * (x - fx) + (y - fy) * (y - fy);
+
+        if (distSq < f1) {
+          f2 = f1;
+          f1 = distSq;
+          nearestCellX = cx;
+          nearestCellY = cy;
+        } else if (distSq < f2) {
+          f2 = distSq;
+        }
+      }
+    }
+
+    return {
+      f1: Math.sqrt(f1),
+      f2: Math.sqrt(f2),
+      cellX: nearestCellX,
+      cellY: nearestCellY,
+    };
+  }
+
+  return { perlin2D, perlin3D, fbm2D, fbm3D, voronoi2D };
 }

@@ -69,7 +69,14 @@ export function generateChunk(
       const wz = worldZOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
 
-      const baseNoise = noise.fbm2D(wx / 80, wz / 80, 5, 0.5, 2.0);
+      // Domain-warped fBm: produces dramatic cliff formations and organic shapes
+      // warpStrength=3 + 1 iteration gives strong but not chaotic distortion
+      const baseNoise = noise.warpedFbm2D(
+        wx / 80, wz / 80,
+        5, 0.5, 2.0,
+        /* warpStrength */ 3.0,
+        /* iterations */ 1,
+      );
       heights[idx] = baseHeight + blendedOffsets[idx] + baseNoise * 20 * blendedScales[idx];
     }
   }

@@ -2,6 +2,7 @@ import { Block } from "./blocks";
 import { createNoise } from "./perlin";
 import { createBiomeSampler, BIOME_DEFS, Biome, computeBlendedBiomeParams } from "./biomes";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
+import { erode, DEFAULT_EROSION } from "./erosion";
 
 /**
  * 3D chunk generation with biome-aware terrain and biome blending.
@@ -21,12 +22,16 @@ export interface WorldConfig {
   seed: number;
   waterLevel: number;
   baseHeight: number;
+  enableErosion: boolean;
+  erosionDroplets: number;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
   seed: 42,
   waterLevel: 0,
   baseHeight: 0,
+  enableErosion: true,
+  erosionDroplets: 1500,
 };
 
 export type ChunkData = Uint8Array;
@@ -78,6 +83,52 @@ export function generateChunk(
         /* iterations */ 1,
       );
       heights[idx] = baseHeight + blendedOffsets[idx] + baseNoise * 20 * blendedScales[idx];
+    }
+  }
+
+  // ── Erosion pass ─────────────────────────────────────────────────
+  // Generate a padded heightmap, run erosion on it, then copy
+  // the inner region back to heights[].
+  if (config.enableErosion) {
+    const ERODE_PAD = 8;
+    const padSize = CHUNK_SIZE + 2 * ERODE_PAD;
+    const paddedMap = new Float64Array(padSize * padSize);
+
+    // Fill padded heightmap — recompute heights for the margin area
+    for (let pz = 0; pz < padSize; pz++) {
+      for (let px = 0; px < padSize; px++) {
+        const wx = worldXOff - ERODE_PAD + px;
+        const wz = worldZOff - ERODE_PAD + pz;
+
+        // For cells inside the chunk, use precomputed values
+        const lx = px - ERODE_PAD;
+        const lz = pz - ERODE_PAD;
+        if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE) {
+          paddedMap[pz * padSize + px] = heights[lz * CHUNK_SIZE + lx];
+        } else {
+          // Recompute for margin cells
+          const marginBiome = getBiome(wx, wz);
+          const marginDef = BIOME_DEFS[marginBiome];
+          const marginNoise = noise.warpedFbm2D(
+            wx / 80, wz / 80,
+            5, 0.5, 2.0, 3.0, 1,
+          );
+          paddedMap[pz * padSize + px] = baseHeight + marginDef.heightOffset + marginNoise * 20 * marginDef.heightScale;
+        }
+      }
+    }
+
+    // Run erosion
+    erode(paddedMap, padSize, {
+      ...DEFAULT_EROSION,
+      droplets: config.erosionDroplets,
+    }, seed + chunkX * 73856093 + chunkZ * 19349663);
+
+    // Copy eroded heights back
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        heights[lz * CHUNK_SIZE + lx] = paddedMap[(lz + ERODE_PAD) * padSize + (lx + ERODE_PAD)];
+      }
     }
   }
 

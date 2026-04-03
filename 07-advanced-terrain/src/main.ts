@@ -77,6 +77,9 @@ const radiusVal      = document.getElementById("radius-val")!;
 const regenerateBtn  = document.getElementById("regenerate")   as HTMLButtonElement;
 const debugToggle    = document.getElementById("debug")        as HTMLInputElement;
 const debugOverlay   = document.getElementById("debug-overlay")!;
+const erosionToggle  = document.getElementById("erosion")      as HTMLInputElement;
+const dropletsSlider = document.getElementById("droplets")      as HTMLInputElement;
+const dropletsVal    = document.getElementById("droplets-val")!;
 const fpsLimitSlider = document.getElementById("fpslimit")     as HTMLInputElement;
 const fpsLimitVal    = document.getElementById("fpslimit-val")!;
 const chunksDisplay  = document.getElementById("chunks-loaded")!;
@@ -93,7 +96,11 @@ function randomSeed(): number {
 let currentSeed = randomSeed();
 seedInput.value = String(currentSeed);
 
-let world = new World(scene, { seed: currentSeed });
+let world = new World(scene, {
+  seed: currentSeed,
+  enableErosion: erosionToggle.checked,
+  erosionDroplets: Number(dropletsSlider.value),
+});
 let biomeSampler      = createBiomeSampler(currentSeed);
 let biomeDebugSampler = createBiomeDebugSampler(currentSeed);
 let renderRadius = Number(radiusSlider.value);
@@ -153,7 +160,11 @@ function regenerate() {
   seedInput.value = String(currentSeed);
 
   world.dispose();
-  world = new World(scene, { seed: currentSeed });
+  world = new World(scene, {
+    seed: currentSeed,
+    enableErosion: erosionToggle.checked,
+    erosionDroplets: Number(dropletsSlider.value),
+  });
   biomeSampler      = createBiomeSampler(currentSeed);
   biomeDebugSampler = createBiomeDebugSampler(currentSeed);
   walkController.setWorld(world);
@@ -163,6 +174,10 @@ regenerateBtn.addEventListener("click", regenerate);
 radiusSlider.addEventListener("input", () => {
   renderRadius = Number(radiusSlider.value);
   radiusVal.textContent = String(renderRadius);
+});
+
+dropletsSlider.addEventListener("input", () => {
+  dropletsVal.textContent = String(dropletsSlider.value);
 });
 
 debugToggle.addEventListener("change", () => {
@@ -247,7 +262,8 @@ function animate(timestamp: number) {
       `Pos: ${wx}, ${Math.floor(pos.y)}, ${wz}<br>` +
       `Chunk: ${Math.floor(pos.x / CHUNK_SIZE)}, ${Math.floor(pos.y / CHUNK_SIZE)}, ${Math.floor(pos.z / CHUNK_SIZE)}<br>` +
       `Biome: ${biomeName}<br>` +
-      `Seed: ${currentSeed}<br><br>` +
+      `Seed: ${currentSeed}<br>` +
+      `Erosion: ${world.config.enableErosion ? 'ON' : 'OFF'} (${world.config.erosionDroplets} drops)<br><br>` +
       `Temperature: ${debug.temperature.toFixed(3)}<br>` +
       `Humidity: ${debug.humidity.toFixed(3)}<br>` +
       `Continent: ${debug.continent.toFixed(3)}`;

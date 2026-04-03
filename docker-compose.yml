@@ -47,6 +47,30 @@ services:
     networks:
       - app-network
 
+  biomes-and-structures:
+    build:
+      context: ./05-biomes-and-structures
+    container_name: biomes_and_structures
+    ports:
+      - "5178:5178"
+    volumes:
+      - ./05-biomes-and-structures:/app
+      - biomes_and_structures_modules:/app/node_modules
+    networks:
+      - app-network
+
+  biome-blending:
+    build:
+      context: ./06-biome-blending
+    container_name: biome_blending
+    ports:
+      - "5179:5179"
+    volumes:
+      - ./06-biome-blending:/app
+      - biome_blending_modules:/app/node_modules
+    networks:
+      - app-network
+
 networks:
   app-network:
     external: true
@@ -57,3 +81,5 @@ volumes:
   2d_terrain_modules:
   tilemap_world_modules:
   3d_voxel_terrain_modules:
+  biomes_and_structures_modules:
+  biome_blending_modules:

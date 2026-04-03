@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>06 - Biome Blending</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      gap: 1.2rem;
+      padding: 0.6rem 1rem;
+      background: #16213e;
+      flex-wrap: wrap;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+    .control {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.8rem;
+    }
+    label { opacity: 0.8; white-space: nowrap; }
+    input[type="range"] { width: 90px; }
+    input[type="number"] {
+      width: 70px;
+      background: #0f3460;
+      color: #e0e0e0;
+      border: 1px solid #555;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    button {
+      background: #e94560;
+      color: white;
+      border: none;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #c73e54; }
+    .legend {
+      display: flex;
+      gap: 0.7rem;
+      font-size: 0.7rem;
+      align-items: center;
+      padding: 0.4rem 1rem;
+      background: #16213e;
+      border-bottom: 1px solid #333;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border: 1px solid #555;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .hud {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    canvas { display: block; }
+    .hint { font-size: 0.7rem; opacity: 0.5; }
+    #debug-overlay {
+      display: none;
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      background: rgba(0,0,0,0.7);
+      padding: 0.5rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      line-height: 1.5;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #crosshair {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 1.4rem;
+      font-weight: bold;
+      pointer-events: none;
+      text-shadow: 0 0 3px #000, 0 0 3px #000;
+      z-index: 20;
+      line-height: 1;
+    }
+    #lock-overlay {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.75);
+      color: #e0e0e0;
+      padding: 1rem 1.6rem;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.9rem;
+      pointer-events: none;
+      z-index: 30;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="control">
+      <label>Seed:</label>
+      <input type="number" id="seed" value="1" />
+    </div>
+    <div class="control">
+      <label>Render radius: <span id="radius-val">8</span></label>
+      <input type="range" id="radius" min="1" max="32" value="8" />
+    </div>
+    <button id="regenerate">Regenerate</button>
+    <div class="control">
+      <label>FPS limit: <span id="fpslimit-val">60</span></label>
+      <input type="range" id="fpslimit" min="10" max="120" step="5" value="60" />
+    </div>
+    <label class="control" style="cursor:pointer"><input type="checkbox" id="debug" /> Debug</label>
+    <button id="mode">🚶 Walk</button>
+    <span class="hint" id="hint">Orbit: LMB &nbsp;|&nbsp; Pan: RMB &nbsp;|&nbsp; Zoom: Scroll &nbsp;|&nbsp; WASD: Move &nbsp;|&nbsp; F: Toggle Walk/Fly</span>
+    <div class="hud">
+      Chunks: <span id="chunks-loaded">0</span> &nbsp;|&nbsp;
+      Pending: <span id="pending">0</span> &nbsp;|&nbsp;
+      FPS: <span id="fps">0</span>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" style="background:#4CAF50"></span>Grass</div>
+    <div class="legend-item"><span class="swatch" style="background:#A0855B"></span>Savanna</div>
+    <div class="legend-item"><span class="swatch" style="background:#EDC9AF"></span>Sand</div>
+    <div class="legend-item"><span class="swatch" style="background:#C97044"></span>Red Sand</div>
+    <div class="legend-item"><span class="swatch" style="background:#F0F0F0"></span>Snow</div>
+    <div class="legend-item"><span class="swatch" style="background:#B3E5FC"></span>Ice</div>
+    <div class="legend-item"><span class="swatch" style="background:#808080"></span>Stone</div>
+    <div class="legend-item"><span class="swatch" style="background:#2196F3"></span>Water</div>
+    <div class="legend-item"><span class="swatch" style="background:#6D4C2A"></span>Oak</div>
+    <div class="legend-item"><span class="swatch" style="background:#D4C9A8"></span>Birch</div>
+    <div class="legend-item"><span class="swatch" style="background:#3E2723"></span>Spruce</div>
+    <div class="legend-item"><span class="swatch" style="background:#388E3C"></span>Cactus</div>
+    <div class="legend-item"><span class="swatch" style="background:#D4B483"></span>Pyramid</div>
+    <div class="legend-item"><span class="swatch" style="background:#DCE8EC"></span>Igloo</div>
+    <div class="legend-item"><span class="swatch" style="background:#BC8F5E"></span>Village</div>
+  </div>
+  <div id="debug-overlay"></div>
+  <div id="crosshair">+</div>
+  <div id="lock-overlay">Click to capture mouse<br><small>F — toggle Walk / Fly &nbsp;|&nbsp; Esc — release mouse</small></div>
+  <canvas id="canvas"></canvas>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

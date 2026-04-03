@@ -175,5 +175,40 @@ export function createNoise(seed: number) {
     };
   }
 
-  return { perlin2D, perlin3D, fbm2D, fbm3D, voronoi2D };
+  /**
+   * Domain-warped fBm — the "Inigo Quilez" technique.
+   *
+   * Instead of sampling fBm(x, y), we sample:
+   *   fBm(x + fBm(x, y), y + fBm(x + 5.2, y + 1.3))
+   *
+   * The inner fBm offsets distort the coordinate space, producing
+   * swirling, organic patterns. Increasing `iterations` stacks more
+   * warps (each feeds into the next), amplifying the effect.
+   *
+   * warpStrength controls how far coordinates are displaced (in noise
+   * units). Values of 2-4 produce dramatic cliff formations.
+   */
+  function warpedFbm2D(
+    x: number,
+    y: number,
+    octaves: number,
+    persistence: number,
+    lacunarity: number,
+    warpStrength: number,
+    iterations: number = 1,
+  ): number {
+    let wx = x;
+    let wy = y;
+
+    for (let i = 0; i < iterations; i++) {
+      const offsetX = fbm2D(wx, wy, octaves, persistence, lacunarity);
+      const offsetY = fbm2D(wx + 5.2, wy + 1.3, octaves, persistence, lacunarity);
+      wx = x + offsetX * warpStrength;
+      wy = y + offsetY * warpStrength;
+    }
+
+    return fbm2D(wx, wy, octaves, persistence, lacunarity);
+  }
+
+  return { perlin2D, perlin3D, fbm2D, fbm3D, voronoi2D, warpedFbm2D };
 }

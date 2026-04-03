@@ -86,6 +86,34 @@ export function generateChunk(
     }
   }
 
+  // ── River channels from Voronoi edges ────────────────────────────
+  // Voronoi F2-F1 → 0 at cell boundaries. We use this to carve
+  // river-like channels into the terrain. Only below a depth threshold
+  // so rivers don't cut through mountain peaks.
+  const riverNoise = createNoise(seed + 7);
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = worldXOff + lx;
+      const wz = worldZOff + lz;
+      const idx = lz * CHUNK_SIZE + lx;
+
+      const v = riverNoise.voronoi2D(wx / 200, wz / 200);
+      const edgeDist = v.f2 - v.f1; // 0 at edges
+
+      // Carve where edge distance is small — creates river-width channels
+      if (edgeDist < 0.08) {
+        const carveStrength = (1 - edgeDist / 0.08); // 1 at center, 0 at edges
+        const currentHeight = heights[idx];
+        // Only carve into terrain that's near/above water level
+        if (currentHeight > waterLevel - 2) {
+          // Carve down toward water level, creating river beds
+          const maxCarve = 6 * carveStrength * carveStrength;
+          heights[idx] = Math.max(waterLevel - 2, currentHeight - maxCarve);
+        }
+      }
+    }
+  }
+
   // ── Erosion pass ─────────────────────────────────────────────────
   // Generate a padded heightmap, run erosion on it, then copy
   // the inner region back to heights[].

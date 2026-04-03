@@ -217,7 +217,7 @@ export function erode(
       }
 
       // Update speed and water
-      speed = Math.sqrt(Math.max(0, speed * speed + heightDiff * config.gravity));
+      speed = Math.sqrt(Math.max(0, speed * speed - heightDiff * config.gravity));
       water *= (1 - config.evaporationRate);
 
       posX = newX;

@@ -1,0 +1,73 @@
+/**
+ * Block definitions — expanded for biome variety.
+ *
+ * New blocks: Cactus, DeadGrass, Red Sand, Ice, Packed Ice,
+ * Oak/Birch/Spruce wood and leaves for biome-specific trees.
+ */
+
+export const Block = {
+  Air:          0,
+  Grass:        1,
+  Dirt:         2,
+  Stone:        3,
+  DeepStone:    4,
+  Sand:         5,
+  Water:        6,
+  Snow:         7,
+  Coal:         8,
+  Iron:         9,
+  OakWood:     10,
+  OakLeaves:   11,
+  BirchWood:   12,
+  BirchLeaves: 13,
+  SpruceWood:  14,
+  SpruceLeaves:15,
+  Cactus:      16,
+  DeadGrass:   17,
+  RedSand:     18,
+  Ice:         19,
+  Gravel:      20,
+  Sandstone:   21,
+  SnowBrick:   22,
+  OakPlanks:   23,
+  Cobblestone: 24,
+  Glass:       25,
+} as const;
+
+export type BlockId = (typeof Block)[keyof typeof Block];
+
+export interface BlockDef {
+  name: string;
+  color: number;
+  solid: boolean;
+  transparent: boolean;
+}
+
+export const BLOCK_DEFS: Record<number, BlockDef> = {
+  [Block.Air]:          { name: "Air",           color: 0x7EC8E3, solid: false, transparent: true },
+  [Block.Grass]:        { name: "Grass",         color: 0x4CAF50, solid: true,  transparent: false },
+  [Block.Dirt]:         { name: "Dirt",          color: 0x8B5E3C, solid: true,  transparent: false },
+  [Block.Stone]:        { name: "Stone",         color: 0x808080, solid: true,  transparent: false },
+  [Block.DeepStone]:    { name: "Deep Stone",    color: 0x505050, solid: true,  transparent: false },
+  [Block.Sand]:         { name: "Sand",          color: 0xEDC9AF, solid: true,  transparent: false },
+  [Block.Water]:        { name: "Water",         color: 0x2196F3, solid: true,  transparent: false },
+  [Block.Snow]:         { name: "Snow",          color: 0xF0F0F0, solid: true,  transparent: false },
+  [Block.Coal]:         { name: "Coal",          color: 0x333333, solid: true,  transparent: false },
+  [Block.Iron]:         { name: "Iron",          color: 0xC19A6B, solid: true,  transparent: false },
+  [Block.OakWood]:      { name: "Oak Wood",      color: 0x6D4C2A, solid: true,  transparent: false },
+  [Block.OakLeaves]:    { name: "Oak Leaves",    color: 0x2E7D32, solid: true,  transparent: false },
+  [Block.BirchWood]:    { name: "Birch Wood",    color: 0xD4C9A8, solid: true,  transparent: false },
+  [Block.BirchLeaves]:  { name: "Birch Leaves",  color: 0x6DBF4B, solid: true,  transparent: false },
+  [Block.SpruceWood]:   { name: "Spruce Wood",   color: 0x3E2723, solid: true,  transparent: false },
+  [Block.SpruceLeaves]: { name: "Spruce Leaves", color: 0x1B5E20, solid: true,  transparent: false },
+  [Block.Cactus]:       { name: "Cactus",        color: 0x388E3C, solid: true,  transparent: false },
+  [Block.DeadGrass]:    { name: "Dead Grass",    color: 0xA0855B, solid: true,  transparent: false },
+  [Block.RedSand]:      { name: "Red Sand",      color: 0xC97044, solid: true,  transparent: false },
+  [Block.Ice]:          { name: "Ice",           color: 0xB3E5FC, solid: true,  transparent: false },
+  [Block.Gravel]:       { name: "Gravel",        color: 0x9E9E9E, solid: true,  transparent: false },
+  [Block.Sandstone]:    { name: "Sandstone",     color: 0xD4B483, solid: true,  transparent: false },
+  [Block.SnowBrick]:    { name: "Snow Brick",    color: 0xDCE8EC, solid: true,  transparent: false },
+  [Block.OakPlanks]:    { name: "Oak Planks",    color: 0xBC8F5E, solid: true,  transparent: false },
+  [Block.Cobblestone]:  { name: "Cobblestone",   color: 0x6B6B6B, solid: true,  transparent: false },
+  [Block.Glass]:        { name: "Glass",         color: 0xCCE8F0, solid: true,  transparent: false },
+};

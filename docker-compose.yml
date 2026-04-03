@@ -71,6 +71,18 @@ services:
     networks:
       - app-network
 
+  advanced-terrain:
+    build:
+      context: ./07-advanced-terrain
+    container_name: advanced_terrain
+    ports:
+      - "5180:5180"
+    volumes:
+      - ./07-advanced-terrain:/app
+      - advanced_terrain_modules:/app/node_modules
+    networks:
+      - app-network
+
 networks:
   app-network:
     external: true
@@ -83,3 +95,4 @@ volumes:
   3d_voxel_terrain_modules:
   biomes_and_structures_modules:
   biome_blending_modules:
+  advanced_terrain_modules:

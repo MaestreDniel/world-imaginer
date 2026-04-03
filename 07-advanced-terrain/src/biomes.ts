@@ -149,7 +149,15 @@ export function createBiomeSampler(seed: number) {
   const continentNoise = createNoise(seed + 12);
 
   function sampleNoise(wx: number, wz: number) {
-    const continent = continentNoise.fbm2D(wx / 400, wz / 400, 3, 0.5, 2.0);
+    // Voronoi F2-F1 at large scale produces organic continent edges.
+    // F2-F1 → 0 at cell boundaries (coastlines), large in cell interiors.
+    const v = continentNoise.voronoi2D(wx / 500, wz / 500);
+    const edgeDist = v.f2 - v.f1; // 0 at boundary, ~0.5+ in interior
+
+    // Map to continent value: interior → land (positive), edge → coast/ocean (negative)
+    // fBm perturbation breaks up straight Voronoi edges
+    const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
+    const continent = (edgeDist - 0.25) * 2.0 + perturbation;
     const temp = tempNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
     const humid = humidNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
     return { continent, temp, humid };
@@ -279,7 +287,10 @@ export function createBiomeDebugSampler(seed: number) {
   const continentNoise = createNoise(seed + 12);
 
   return function getBiomeDebug(wx: number, wz: number): BiomeDebugInfo {
-    const continent = continentNoise.fbm2D(wx / 400, wz / 400, 3, 0.5, 2.0);
+    const v = continentNoise.voronoi2D(wx / 500, wz / 500);
+    const edgeDist = v.f2 - v.f1;
+    const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
+    const continent = (edgeDist - 0.25) * 2.0 + perturbation;
     const temperature = tempNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
     const humidity = humidNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
 

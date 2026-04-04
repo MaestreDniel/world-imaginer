@@ -51,7 +51,7 @@ function loadAndPlay(delay: number): void {
     sound.setVolume(0.5);
     setTimeout(() => {
       sound.play();
-      sound.source!.onended = () => loadAndPlay(60000);
+      sound.source!.onended = () => loadAndPlay(120000);
     }, delay);
   });
 }

@@ -50,7 +50,7 @@ export function generateChunk(
   const caveNoise = createNoise(seed + 1);
   const oreNoise = createNoise(seed + 2);
   const treeNoise = createNoise(seed + 3);
-  const getBiome = createBiomeSampler(seed);
+  const getBiome = createBiomeSampler(seed, config.params.biomes);
 
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 

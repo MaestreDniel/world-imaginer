@@ -1,5 +1,6 @@
 import { Block } from "./blocks";
 import { createNoise } from "./perlin";
+import { type BiomeParams, DEFAULT_PARAMS } from "./generationParams";
 
 /**
  * Biome system — the key new concept in this project.
@@ -143,7 +144,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
  * Temperature and humidity are sampled at large scale (300 blocks)
  * and mapped to biomes via a simple threshold grid.
  */
-export function createBiomeSampler(seed: number) {
+export function createBiomeSampler(seed: number, biomeParams: BiomeParams = DEFAULT_PARAMS.biomes) {
   const tempNoise = createNoise(seed + 10);
   const humidNoise = createNoise(seed + 11);
   const continentNoise = createNoise(seed + 12);
@@ -151,22 +152,22 @@ export function createBiomeSampler(seed: number) {
   function sampleNoise(wx: number, wz: number) {
     // Voronoi F2-F1 at large scale produces organic continent edges.
     // F2-F1 → 0 at cell boundaries (coastlines), large in cell interiors.
-    const v = continentNoise.voronoi2D(wx / 500, wz / 500);
+    const v = continentNoise.voronoi2D(wx / biomeParams.continentScale, wz / biomeParams.continentScale);
     const edgeDist = v.f2 - v.f1; // 0 at boundary, ~0.5+ in interior
 
     // Map to continent value: interior → land (positive), edge → coast/ocean (negative)
     // fBm perturbation breaks up straight Voronoi edges
     const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
     const continent = (edgeDist - 0.25) * 2.0 + perturbation;
-    const temp = tempNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
-    const humid = humidNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
+    const temp = tempNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
+    const humid = humidNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
     return { continent, temp, humid };
   }
 
   function biomeFromNoise(continent: number, temp: number, humid: number): BiomeId {
-    if (continent < -0.3) return Biome.Ocean;
-    if (continent < -0.15) return Biome.Beach;
-    if (continent > 0.45) return Biome.Mountains;
+    if (continent < biomeParams.oceanThreshold) return Biome.Ocean;
+    if (continent < biomeParams.beachThreshold) return Biome.Beach;
+    if (continent > biomeParams.mountainThreshold) return Biome.Mountains;
 
     if (temp > 0.2) {
       return humid > 0.15 ? Biome.Savanna : Biome.Desert;
@@ -281,23 +282,23 @@ export interface BiomeDebugInfo {
  * Create a debug sampler that returns raw noise values alongside the biome.
  * Used by the debug overlay — not called during chunk generation.
  */
-export function createBiomeDebugSampler(seed: number) {
+export function createBiomeDebugSampler(seed: number, biomeParams: BiomeParams = DEFAULT_PARAMS.biomes) {
   const tempNoise = createNoise(seed + 10);
   const humidNoise = createNoise(seed + 11);
   const continentNoise = createNoise(seed + 12);
 
   return function getBiomeDebug(wx: number, wz: number): BiomeDebugInfo {
-    const v = continentNoise.voronoi2D(wx / 500, wz / 500);
+    const v = continentNoise.voronoi2D(wx / biomeParams.continentScale, wz / biomeParams.continentScale);
     const edgeDist = v.f2 - v.f1;
     const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
     const continent = (edgeDist - 0.25) * 2.0 + perturbation;
-    const temperature = tempNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
-    const humidity = humidNoise.fbm2D(wx / 300, wz / 300, 4, 0.5, 2.0);
+    const temperature = tempNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
+    const humidity = humidNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
 
     let biome: BiomeId;
-    if (continent < -0.3) biome = Biome.Ocean;
-    else if (continent < -0.15) biome = Biome.Beach;
-    else if (continent > 0.45) biome = Biome.Mountains;
+    if (continent < biomeParams.oceanThreshold) biome = Biome.Ocean;
+    else if (continent < biomeParams.beachThreshold) biome = Biome.Beach;
+    else if (continent > biomeParams.mountainThreshold) biome = Biome.Mountains;
     else if (temperature > 0.2) biome = humidity > 0.15 ? Biome.Savanna : Biome.Desert;
     else if (temperature > -0.15) {
       if (humidity > 0.2) biome = Biome.Forest;

@@ -8,9 +8,9 @@ import { WalkController, CAMERA_HEIGHT } from "./walkController";
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7EC8E3);
-scene.fog = new THREE.Fog(0x7EC8E3, CHUNK_SIZE * 8, CHUNK_SIZE * 28);
+scene.fog = new THREE.Fog(0x7EC8E3, 0, 1); // placeholder — set by updateFog()
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.5, CHUNK_SIZE * 40);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.5, 1); // far set by updateFog()
 camera.position.set(CHUNK_SIZE * 0, 8, CHUNK_SIZE * 0);
 
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("canvas") as HTMLCanvasElement, antialias: true });
@@ -105,6 +105,17 @@ let biomeSampler      = createBiomeSampler(currentSeed);
 let biomeDebugSampler = createBiomeDebugSampler(currentSeed);
 let renderRadius = Number(radiusSlider.value);
 
+function updateFog(radius: number): void {
+  const far  = radius * CHUNK_SIZE;
+  const near = far * 0.6;
+  (scene.fog as THREE.Fog).near = near;
+  (scene.fog as THREE.Fog).far  = far;
+  camera.far = far;
+  camera.updateProjectionMatrix();
+}
+
+updateFog(renderRadius);
+
 // ── Walk controller ───────────────────────────────────────────────────────────
 const walkController = new WalkController(camera, world, renderer.domElement);
 
@@ -174,6 +185,7 @@ regenerateBtn.addEventListener("click", regenerate);
 radiusSlider.addEventListener("input", () => {
   renderRadius = Number(radiusSlider.value);
   radiusVal.textContent = String(renderRadius);
+  updateFog(renderRadius);
 });
 
 dropletsSlider.addEventListener("input", () => {

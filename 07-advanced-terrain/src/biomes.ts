@@ -204,7 +204,7 @@ export const BIOME_GRASS_COLORS: Record<number, number> = {
   [Biome.Beach]:       grassColorFromClimate( 0.0,  0.0),
   [Biome.Desert]:      grassColorFromClimate( 0.35, -0.2),   // hot, dry
   [Biome.Savanna]:     grassColorFromClimate( 0.35,  0.3),   // hot, humid
-  [Biome.Plains]:      grassColorFromClimate( 0.0,  -0.3),   // mild, dry-ish
+  [Biome.Plains]:      grassColorFromClimate( 0.0,   0.0),   // mild, neutral
   [Biome.Forest]:      grassColorFromClimate( 0.0,   0.35),  // mild, humid
   [Biome.BirchForest]: grassColorFromClimate( 0.0,   0.05),  // mild, moderate
   [Biome.Taiga]:       grassColorFromClimate(-0.3,   0.2),   // cold, humid

@@ -1,7 +1,7 @@
 /**
  * Block definitions — expanded for biome variety.
  *
- * New blocks: Cactus, DeadGrass, Red Sand, Ice, Packed Ice,
+ * New blocks: Cactus, Red Sand, Ice, Packed Ice,
  * Oak/Birch/Spruce wood and leaves for biome-specific trees.
  */
 
@@ -23,15 +23,14 @@ export const Block = {
   SpruceWood:  14,
   SpruceLeaves:15,
   Cactus:      16,
-  DeadGrass:   17,
-  RedSand:     18,
-  Ice:         19,
-  Gravel:      20,
-  Sandstone:   21,
-  SnowBrick:   22,
-  OakPlanks:   23,
-  Cobblestone: 24,
-  Glass:       25,
+  RedSand:     17,
+  Ice:         18,
+  Gravel:      19,
+  Sandstone:   20,
+  SnowBrick:   21,
+  OakPlanks:   22,
+  Cobblestone: 23,
+  Glass:       24,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
@@ -61,7 +60,6 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
   [Block.SpruceWood]:   { name: "Spruce Wood",   color: 0x3E2723, solid: true,  transparent: false },
   [Block.SpruceLeaves]: { name: "Spruce Leaves", color: 0x1B5E20, solid: true,  transparent: false },
   [Block.Cactus]:       { name: "Cactus",        color: 0x388E3C, solid: true,  transparent: false },
-  [Block.DeadGrass]:    { name: "Dead Grass",    color: 0xA0855B, solid: true,  transparent: false },
   [Block.RedSand]:      { name: "Red Sand",      color: 0xC97044, solid: true,  transparent: false },
   [Block.Ice]:          { name: "Ice",           color: 0xB3E5FC, solid: true,  transparent: false },
   [Block.Gravel]:       { name: "Gravel",        color: 0x9E9E9E, solid: true,  transparent: false },

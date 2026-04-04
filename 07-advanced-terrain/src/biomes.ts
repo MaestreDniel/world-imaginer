@@ -81,7 +81,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
   },
   [Biome.Savanna]: {
     name: "Savanna",
-    surfaceBlock: Block.DeadGrass,
+    surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
     heightScale: 0.6,
     heightOffset: 0,

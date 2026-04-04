@@ -4,6 +4,7 @@ import { World } from "./world";
 import { CHUNK_SIZE } from "./chunk";
 import { createBiomeSampler, createBiomeDebugSampler, BIOME_DEFS } from "./biomes";
 import { WalkController, CAMERA_HEIGHT } from "./walkController";
+import { DEFAULT_PARAMS, cloneParams, type GenerationParams } from "./generationParams";
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -77,9 +78,6 @@ const radiusVal      = document.getElementById("radius-val")!;
 const regenerateBtn  = document.getElementById("regenerate")   as HTMLButtonElement;
 const debugToggle    = document.getElementById("debug")        as HTMLInputElement;
 const debugOverlay   = document.getElementById("debug-overlay")!;
-const erosionToggle  = document.getElementById("erosion")      as HTMLInputElement;
-const dropletsSlider = document.getElementById("droplets")      as HTMLInputElement;
-const dropletsVal    = document.getElementById("droplets-val")!;
 const fpsLimitSlider = document.getElementById("fpslimit")     as HTMLInputElement;
 const fpsLimitVal    = document.getElementById("fpslimit-val")!;
 const chunksDisplay  = document.getElementById("chunks-loaded")!;
@@ -96,13 +94,14 @@ function randomSeed(): number {
 let currentSeed = randomSeed();
 seedInput.value = String(currentSeed);
 
+let currentParams = cloneParams(DEFAULT_PARAMS);
+
 let world = new World(scene, {
   seed: currentSeed,
-  enableErosion: erosionToggle.checked,
-  erosionDroplets: Number(dropletsSlider.value),
+  params: currentParams,
 });
-let biomeSampler      = createBiomeSampler(currentSeed);
-let biomeDebugSampler = createBiomeDebugSampler(currentSeed);
+let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
+let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
 let renderRadius = Number(radiusSlider.value);
 
 function updateFog(radius: number): void {
@@ -173,11 +172,10 @@ function regenerate() {
   world.dispose();
   world = new World(scene, {
     seed: currentSeed,
-    enableErosion: erosionToggle.checked,
-    erosionDroplets: Number(dropletsSlider.value),
+    params: currentParams,
   });
-  biomeSampler      = createBiomeSampler(currentSeed);
-  biomeDebugSampler = createBiomeDebugSampler(currentSeed);
+  biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
+  biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
   walkController.setWorld(world);
 }
 
@@ -186,10 +184,6 @@ radiusSlider.addEventListener("input", () => {
   renderRadius = Number(radiusSlider.value);
   radiusVal.textContent = String(renderRadius);
   updateFog(renderRadius);
-});
-
-dropletsSlider.addEventListener("input", () => {
-  dropletsVal.textContent = String(dropletsSlider.value);
 });
 
 debugToggle.addEventListener("change", () => {
@@ -275,7 +269,7 @@ function animate(timestamp: number) {
       `Chunk: ${Math.floor(pos.x / CHUNK_SIZE)}, ${Math.floor(pos.y / CHUNK_SIZE)}, ${Math.floor(pos.z / CHUNK_SIZE)}<br>` +
       `Biome: ${biomeName}<br>` +
       `Seed: ${currentSeed}<br>` +
-      `Erosion: ${world.config.enableErosion ? 'ON' : 'OFF'} (${world.config.erosionDroplets} drops)<br><br>` +
+      `Erosion: ${currentParams.erosion.enabled ? 'ON' : 'OFF'} (${currentParams.erosion.droplets} drops)<br><br>` +
       `Temperature: ${debug.temperature.toFixed(3)}<br>` +
       `Humidity: ${debug.humidity.toFixed(3)}<br>` +
       `Continent: ${debug.continent.toFixed(3)}`;

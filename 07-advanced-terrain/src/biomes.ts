@@ -3,6 +3,61 @@ import { createNoise } from "./perlin";
 import { type BiomeParams, DEFAULT_PARAMS } from "./generationParams";
 
 /**
+ * Grass color gradient — maps (temperature, humidity) to a packed 0xRRGGBB color.
+ *
+ * Uses bilinear interpolation across four corner colors:
+ *   Hot+Dry  → sandy yellow-brown
+ *   Hot+Wet  → bright warm green
+ *   Cold+Dry → muted grey-green
+ *   Cold+Wet → dark teal/turquoise green
+ *
+ * Temperature and humidity noise values range roughly from -0.5 to 0.5.
+ * They are normalized to 0..1 for interpolation.
+ */
+
+// Corner colors as [R, G, B] in 0..255
+const GRASS_HOT_DRY:  [number, number, number] = [160, 135,  75]; // sandy yellow-brown
+const GRASS_HOT_WET:  [number, number, number] = [100, 180,  50]; // bright warm green
+const GRASS_COLD_DRY: [number, number, number] = [120, 140, 110]; // muted grey-green
+const GRASS_COLD_WET: [number, number, number] = [ 50, 140, 120]; // dark teal/turquoise
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/**
+ * Map climate values to a packed 0xRRGGBB grass color.
+ * @param temp  Temperature noise value (roughly -0.5 to 0.5)
+ * @param humid Humidity noise value (roughly -0.5 to 0.5)
+ */
+export function grassColorFromClimate(temp: number, humid: number): number {
+  const t = clamp01(temp + 0.5);   // 0 = cold, 1 = hot
+  const h = clamp01(humid + 0.5);  // 0 = dry,  1 = wet
+
+  const r = Math.round(lerp(
+    lerp(GRASS_COLD_DRY[0], GRASS_COLD_WET[0], h),
+    lerp(GRASS_HOT_DRY[0],  GRASS_HOT_WET[0],  h),
+    t,
+  ));
+  const g = Math.round(lerp(
+    lerp(GRASS_COLD_DRY[1], GRASS_COLD_WET[1], h),
+    lerp(GRASS_HOT_DRY[1],  GRASS_HOT_WET[1],  h),
+    t,
+  ));
+  const b = Math.round(lerp(
+    lerp(GRASS_COLD_DRY[2], GRASS_COLD_WET[2], h),
+    lerp(GRASS_HOT_DRY[2],  GRASS_HOT_WET[2],  h),
+    t,
+  ));
+
+  return (r << 16) | (g << 8) | b;
+}
+
+/**
  * Biome system — the key new concept in this project.
  *
  * Real terrain isn't uniform: deserts, forests, tundra, and mountains
@@ -138,6 +193,26 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
 };
 
 /**
+ * Pre-computed grass color for each biome, based on a representative
+ * (temperature, humidity) midpoint derived from the biome threshold grid.
+ *
+ * Biomes that don't use Grass as surfaceBlock still have a color here
+ * so the blending math in computeBlendedBiomeParams works uniformly.
+ */
+export const BIOME_GRASS_COLORS: Record<number, number> = {
+  [Biome.Ocean]:       grassColorFromClimate( 0.0,  0.0),
+  [Biome.Beach]:       grassColorFromClimate( 0.0,  0.0),
+  [Biome.Desert]:      grassColorFromClimate( 0.35, -0.2),   // hot, dry
+  [Biome.Savanna]:     grassColorFromClimate( 0.35,  0.3),   // hot, humid
+  [Biome.Plains]:      grassColorFromClimate( 0.0,  -0.3),   // mild, dry-ish
+  [Biome.Forest]:      grassColorFromClimate( 0.0,   0.35),  // mild, humid
+  [Biome.BirchForest]: grassColorFromClimate( 0.0,   0.05),  // mild, moderate
+  [Biome.Taiga]:       grassColorFromClimate(-0.3,   0.2),   // cold, humid
+  [Biome.Tundra]:      grassColorFromClimate(-0.3,  -0.15),  // cold, dry
+  [Biome.Mountains]:   grassColorFromClimate(-0.1,   0.0),   // cool, neutral
+};
+
+/**
  * Create a biome sampler for a given seed.
  *
  * Returns a function that maps world (x, z) to a biome ID.
@@ -214,6 +289,7 @@ export function computeBlendedBiomeParams(
   blendedScales: Float64Array;
   blendedOffsets: Float64Array;
   dominantBiomes: Uint8Array;
+  grassColors: Uint32Array;
 } {
   const padSize = chunkSize + 2 * BLEND_RADIUS;
   const paddedBiomes = new Uint8Array(padSize * padSize);
@@ -233,12 +309,14 @@ export function computeBlendedBiomeParams(
   const blendedScales = new Float64Array(chunkSize * chunkSize);
   const blendedOffsets = new Float64Array(chunkSize * chunkSize);
   const dominantBiomes = new Uint8Array(chunkSize * chunkSize);
+  const grassColors = new Uint32Array(chunkSize * chunkSize);
   const biomeCounts = new Uint8Array(BIOME_COUNT);
 
   for (let lz = 0; lz < chunkSize; lz++) {
     for (let lx = 0; lx < chunkSize; lx++) {
       let totalScale = 0;
       let totalOffset = 0;
+      let totalR = 0, totalG = 0, totalB = 0;
       biomeCounts.fill(0);
 
       for (let kz = 0; kz < kernelSize; kz++) {
@@ -248,12 +326,22 @@ export function computeBlendedBiomeParams(
           totalScale += def.heightScale;
           totalOffset += def.heightOffset;
           biomeCounts[biome]++;
+          const gc = BIOME_GRASS_COLORS[biome];
+          totalR += (gc >> 16) & 0xFF;
+          totalG += (gc >>  8) & 0xFF;
+          totalB +=  gc        & 0xFF;
         }
       }
 
       const idx = lz * chunkSize + lx;
       blendedScales[idx] = totalScale / kernelArea;
       blendedOffsets[idx] = totalOffset / kernelArea;
+
+      // Blended grass color — weighted average across kernel
+      const avgR = Math.round(totalR / kernelArea);
+      const avgG = Math.round(totalG / kernelArea);
+      const avgB = Math.round(totalB / kernelArea);
+      grassColors[idx] = (avgR << 16) | (avgG << 8) | avgB;
 
       // Dominant biome = most frequent in kernel
       let maxCount = 0;
@@ -268,7 +356,7 @@ export function computeBlendedBiomeParams(
     }
   }
 
-  return { blendedScales, blendedOffsets, dominantBiomes };
+  return { blendedScales, blendedOffsets, dominantBiomes, grassColors };
 }
 
 export interface BiomeDebugInfo {

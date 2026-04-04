@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, chunkIndex, type ChunkData } from "./chunk";
-import { BLOCK_DEFS } from "./blocks";
+import { BLOCK_DEFS, Block } from "./blocks";
 
 /**
  * Greedy mesher — converts voxel data into an optimised triangle mesh.
@@ -33,7 +33,7 @@ export interface MeshData {
 
 type NeighborLookup = (x: number, y: number, z: number) => number;
 
-export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup): MeshData {
+export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup, grassColors: Uint32Array): MeshData {
   const positions: number[] = [];
   const normals: number[] = [];
   const colors: number[] = [];
@@ -102,9 +102,26 @@ export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup): Me
           const val = mask[j * CHUNK_SIZE + i];
           if (val === 0) { i++; continue; }
 
+          // Resolve block and grass color before expand loops (needed for merge constraints)
+          const blockId = val - 1;
+          const def = BLOCK_DEFS[blockId];
+          let packedColor = def.color;
+          if (blockId === Block.Grass) {
+            const colPos = [0, 0, 0];
+            colPos[axis] = d; colPos[u] = i; colPos[v] = j;
+            packedColor = grassColors[colPos[2] * CHUNK_SIZE + colPos[0]];
+          }
+
           // Expand width (along u axis)
           let w = 1;
-          while (i + w < CHUNK_SIZE && mask[j * CHUNK_SIZE + i + w] === val) w++;
+          while (i + w < CHUNK_SIZE && mask[j * CHUNK_SIZE + i + w] === val) {
+            if (blockId === Block.Grass) {
+              const wPos = [0, 0, 0];
+              wPos[axis] = d; wPos[u] = i + w; wPos[v] = j;
+              if (grassColors[wPos[2] * CHUNK_SIZE + wPos[0]] !== packedColor) break;
+            }
+            w++;
+          }
 
           // Expand height (along v axis)
           let h = 1;
@@ -115,16 +132,22 @@ export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup): Me
                 done = true;
                 break;
               }
+              if (blockId === Block.Grass) {
+                const hPos = [0, 0, 0];
+                hPos[axis] = d; hPos[u] = i + k; hPos[v] = j + h;
+                if (grassColors[hPos[2] * CHUNK_SIZE + hPos[0]] !== packedColor) {
+                  done = true;
+                  break;
+                }
+              }
             }
             if (!done) h++;
           }
 
           // Emit quad
-          const blockId = val - 1;
-          const def = BLOCK_DEFS[blockId];
-          const r = ((def.color >> 16) & 255) / 255;
-          const g = ((def.color >> 8) & 255) / 255;
-          const b = (def.color & 255) / 255;
+          const r = ((packedColor >> 16) & 255) / 255;
+          const g = ((packedColor >>  8) & 255) / 255;
+          const b = ( packedColor        & 255) / 255;
 
           // Simple directional shading
           const shade = axis === 1

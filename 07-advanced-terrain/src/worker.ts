@@ -12,7 +12,7 @@
  * complexity of passing neighbor data to the worker.
  */
 
-import { generateChunk, CHUNK_SIZE, type WorldConfig, chunkIndex } from "./chunk";
+import { generateChunk, CHUNK_SIZE, type WorldConfig, chunkIndex, type ChunkResult } from "./chunk";
 import { buildChunkMesh } from "./mesher";
 
 export interface WorkerRequest {
@@ -34,13 +34,14 @@ export interface WorkerResponse {
   indices: Uint32Array;
   empty: boolean;
   blockData: Uint8Array;
+  grassColors: Uint32Array;
 }
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const { id, cx, cy, cz, config } = e.data;
 
   const t0 = performance.now();
-  const data = generateChunk(cx, cy, cz, config);
+  const { data, grassColors }: ChunkResult = generateChunk(cx, cy, cz, config);
   const t1 = performance.now();
   if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
 
@@ -54,7 +55,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return data[chunkIndex(lx, ly, lz)];
   };
 
-  const mesh = buildChunkMesh(data, getNeighbor);
+  const mesh = buildChunkMesh(data, getNeighbor, grassColors);
 
   if (mesh.indices.length === 0) {
     const resp: WorkerResponse = {
@@ -65,8 +66,9 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       indices: new Uint32Array(0),
       empty: true,
       blockData: data,
+      grassColors,
     };
-    self.postMessage(resp, { transfer: [data.buffer] });
+    self.postMessage(resp, { transfer: [data.buffer, grassColors.buffer] });
     return;
   }
 
@@ -80,6 +82,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     positions, normals, colors, indices,
     empty: false,
     blockData: data,
+    grassColors,
   };
 
   // Transfer ownership of typed arrays for zero-copy (no serialization cost)
@@ -90,6 +93,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       colors.buffer,
       indices.buffer,
       data.buffer,
+      grassColors.buffer,
     ],
   });
 };

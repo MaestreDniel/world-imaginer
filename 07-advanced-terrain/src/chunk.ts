@@ -35,6 +35,11 @@ export const DEFAULT_CONFIG: WorldConfig = {
 
 export type ChunkData = Uint8Array;
 
+export interface ChunkResult {
+  data: ChunkData;
+  grassColors: Uint32Array;
+}
+
 export function chunkIndex(x: number, y: number, z: number): number {
   return y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x;
 }
@@ -44,7 +49,7 @@ export function generateChunk(
   chunkY: number,
   chunkZ: number,
   config: WorldConfig,
-): ChunkData {
+): ChunkResult {
   const { seed, waterLevel, baseHeight } = config;
   const noise = createNoise(seed);
   const caveNoise = createNoise(seed + 1);
@@ -60,7 +65,7 @@ export function generateChunk(
 
   // Biome blending: compute averaged heightScale/heightOffset over a 9x9
   // kernel per column. The dominant biome is used for block selection.
-  const { blendedScales, blendedOffsets, dominantBiomes } = computeBlendedBiomeParams(
+  const { blendedScales, blendedOffsets, dominantBiomes, grassColors } = computeBlendedBiomeParams(
     worldXOff, worldZOff, CHUNK_SIZE, getBiome,
   );
 
@@ -336,5 +341,5 @@ export function generateChunk(
     }
   }
 
-  return data;
+  return { data, grassColors };
 }

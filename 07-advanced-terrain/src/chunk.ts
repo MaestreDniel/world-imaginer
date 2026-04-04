@@ -2,7 +2,8 @@ import { Block } from "./blocks";
 import { createNoise } from "./perlin";
 import { createBiomeSampler, BIOME_DEFS, Biome, computeBlendedBiomeParams } from "./biomes";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
-import { erode, DEFAULT_EROSION } from "./erosion";
+import { erode } from "./erosion";
+import { type GenerationParams, DEFAULT_PARAMS, toErosionConfig } from "./generationParams";
 
 /**
  * 3D chunk generation with biome-aware terrain and biome blending.
@@ -22,16 +23,14 @@ export interface WorldConfig {
   seed: number;
   waterLevel: number;
   baseHeight: number;
-  enableErosion: boolean;
-  erosionDroplets: number;
+  params: GenerationParams;
 }
 
 export const DEFAULT_CONFIG: WorldConfig = {
   seed: 42,
   waterLevel: 0,
   baseHeight: 0,
-  enableErosion: true,
-  erosionDroplets: 1500,
+  params: DEFAULT_PARAMS,
 };
 
 export type ChunkData = Uint8Array;
@@ -68,21 +67,21 @@ export function generateChunk(
   const biomes = dominantBiomes;
   const heights = new Float64Array(CHUNK_SIZE * CHUNK_SIZE);
 
+  const { terrain } = config.params;
+
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wx = worldXOff + lx;
       const wz = worldZOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
 
-      // Domain-warped fBm: produces dramatic cliff formations and organic shapes
-      // warpStrength=3 + 1 iteration gives strong but not chaotic distortion
       const baseNoise = noise.warpedFbm2D(
-        wx / 80, wz / 80,
-        5, 0.5, 2.0,
-        /* warpStrength */ 3.0,
-        /* iterations */ 1,
+        wx / terrain.scale, wz / terrain.scale,
+        terrain.octaves, terrain.persistence, terrain.lacunarity,
+        terrain.warpStrength,
+        terrain.warpIterations,
       );
-      heights[idx] = baseHeight + blendedOffsets[idx] + baseNoise * 20 * blendedScales[idx];
+      heights[idx] = baseHeight + blendedOffsets[idx] + baseNoise * terrain.heightMultiplier * blendedScales[idx];
     }
   }
 
@@ -90,6 +89,7 @@ export function generateChunk(
   // Voronoi F2-F1 → 0 at cell boundaries. We use this to carve
   // river-like channels into the terrain. Only below a depth threshold
   // so rivers don't cut through mountain peaks.
+  const { rivers } = config.params;
   const riverNoise = createNoise(seed + 7);
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -97,17 +97,14 @@ export function generateChunk(
       const wz = worldZOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
 
-      const v = riverNoise.voronoi2D(wx / 200, wz / 200);
-      const edgeDist = v.f2 - v.f1; // 0 at edges
+      const v = riverNoise.voronoi2D(wx / rivers.voronoiScale, wz / rivers.voronoiScale);
+      const edgeDist = v.f2 - v.f1;
 
-      // Carve where edge distance is small — creates river-width channels
-      if (edgeDist < 0.08) {
-        const carveStrength = (1 - edgeDist / 0.08); // 1 at center, 0 at edges
+      if (edgeDist < rivers.edgeThreshold) {
+        const carveStrength = (1 - edgeDist / rivers.edgeThreshold);
         const currentHeight = heights[idx];
-        // Only carve into terrain that's near/above water level
         if (currentHeight > waterLevel - 2) {
-          // Carve down toward water level, creating river beds
-          const maxCarve = 6 * carveStrength * carveStrength;
+          const maxCarve = rivers.maxCarveDepth * carveStrength * carveStrength;
           heights[idx] = Math.max(waterLevel - 2, currentHeight - maxCarve);
         }
       }
@@ -117,7 +114,7 @@ export function generateChunk(
   // ── Erosion pass ─────────────────────────────────────────────────
   // Generate a padded heightmap, run erosion on it, then copy
   // the inner region back to heights[].
-  if (config.enableErosion) {
+  if (config.params.erosion.enabled) {
     const ERODE_PAD = 8;
     const padSize = CHUNK_SIZE + 2 * ERODE_PAD;
     const paddedMap = new Float64Array(padSize * padSize);
@@ -138,19 +135,19 @@ export function generateChunk(
           const marginBiome = getBiome(wx, wz);
           const marginDef = BIOME_DEFS[marginBiome];
           const marginNoise = noise.warpedFbm2D(
-            wx / 80, wz / 80,
-            5, 0.5, 2.0, 3.0, 1,
+            wx / terrain.scale, wz / terrain.scale,
+            terrain.octaves, terrain.persistence, terrain.lacunarity,
+            terrain.warpStrength, terrain.warpIterations,
           );
-          paddedMap[pz * padSize + px] = baseHeight + marginDef.heightOffset + marginNoise * 20 * marginDef.heightScale;
+          paddedMap[pz * padSize + px] = baseHeight + marginDef.heightOffset
+            + marginNoise * terrain.heightMultiplier * marginDef.heightScale;
         }
       }
     }
 
     // Run erosion
-    erode(paddedMap, padSize, {
-      ...DEFAULT_EROSION,
-      droplets: config.erosionDroplets,
-    }, seed + chunkX * 73856093 + chunkZ * 19349663);
+    erode(paddedMap, padSize, toErosionConfig(config.params.erosion),
+      seed + chunkX * 73856093 + chunkZ * 19349663);
 
     // Copy eroded heights back
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -161,6 +158,8 @@ export function generateChunk(
   }
 
   // Fill voxels
+  const { caves } = config.params;
+  const { ores } = config.params;
   for (let ly = 0; ly < CHUNK_SIZE; ly++) {
     const wy = worldYOff + ly;
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -213,8 +212,8 @@ export function generateChunk(
         // 3D caves — larger scale = wider tunnels, higher threshold = fewer caves
         // Threshold eases near surface so some caves open to the sky
         if (depth > 1) {
-          const caveVal = caveNoise.fbm3D(wx / 30, wy / 30, wz / 30, 3, 0.5, 2.0);
-          const threshold = depth < 8 ? 0.42 + (depth - 2) * 0.005 : 0.45;
+          const caveVal = caveNoise.fbm3D(wx / caves.scale, wy / caves.scale, wz / caves.scale, caves.octaves, 0.5, 2.0);
+          const threshold = depth < 8 ? caves.threshold - 0.03 + (depth - 2) * 0.005 : caves.threshold;
           if (caveVal > threshold) {
             block = wy <= waterLevel ? Block.Water : Block.Air;
           }
@@ -222,10 +221,10 @@ export function generateChunk(
 
         // Ores
         if (block === Block.Stone || block === Block.DeepStone) {
-          const oreVal = oreNoise.fbm3D(wx / 6, wy / 6, wz / 6, 2, 0.5, 2.0);
-          if (oreVal > 0.55 && depth > 15) {
+          const oreVal = oreNoise.fbm3D(wx / ores.scale, wy / ores.scale, wz / ores.scale, 2, 0.5, 2.0);
+          if (oreVal > ores.ironThreshold && depth > ores.ironMinDepth) {
             block = Block.Iron;
-          } else if (oreVal > 0.5 && depth > 8) {
+          } else if (oreVal > ores.coalThreshold && depth > 8) {
             block = Block.Coal;
           }
         }
@@ -245,14 +244,17 @@ export function generateChunk(
       const surfaceH = heights[lz * CHUNK_SIZE + lx];
       const surfaceLocal = Math.floor(surfaceH) - worldYOff;
 
-      for (let dy = 0; dy <= 8; dy++) {
+      for (let dy = 0; dy <= caves.surfaceErosionDepth; dy++) {
         const ly = surfaceLocal - dy;
         if (ly < 0 || ly >= CHUNK_SIZE) continue;
         const wy = worldYOff + ly;
         if (wy <= waterLevel) continue;
 
-        const erosion = erosionNoise.fbm3D(wx / 16, wy / 16, wz / 16, 3, 0.5, 2.0);
-        const threshold = 0.38 + dy * 0.02;
+        const erosion = erosionNoise.fbm3D(
+          wx / caves.surfaceErosionScale, wy / caves.surfaceErosionScale, wz / caves.surfaceErosionScale,
+          3, 0.5, 2.0,
+        );
+        const threshold = caves.surfaceErosionThreshold + dy * 0.02;
         if (erosion > threshold) {
           data[chunkIndex(lx, ly, lz)] = Block.Air;
         }

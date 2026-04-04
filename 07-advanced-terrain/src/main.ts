@@ -51,12 +51,12 @@ function loadAndPlay(delay: number): void {
     sound.setVolume(0.5);
     setTimeout(() => {
       sound.play();
-      sound.source!.onended = () => loadAndPlay(15000);
+      sound.source!.onended = () => loadAndPlay(60000);
     }, delay);
   });
 }
 
-loadAndPlay(5000);
+loadAndPlay(15000);
 
 // ── Lighting ─────────────────────────────────────────────────────────────────
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -105,9 +105,13 @@ let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
 let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
 let renderRadius = Number(radiusSlider.value);
 
-const debugPanel = new DebugPanel(currentParams, (newParams) => {
+const debugPanel = new DebugPanel(currentParams, (newParams, randomizeSeed) => {
   currentParams = newParams;
-  regenerate();
+  if (randomizeSeed) {
+    currentSeed = randomSeed();
+    seedInput.value = String(currentSeed);
+  }
+  rebuildWorld();
 });
 
 const paramsToggleBtn = document.getElementById("params-toggle") as HTMLButtonElement;
@@ -169,15 +173,7 @@ function setMode(next: Mode): void {
 modeBtn.addEventListener("click", () => { setMode(mode === "fly" ? "walk" : "fly"); modeBtn.blur(); });
 
 // ── World management ──────────────────────────────────────────────────────────
-function regenerate() {
-  const inputVal = Number(seedInput.value);
-  if (inputVal !== currentSeed) {
-    currentSeed = inputVal || randomSeed();
-  } else {
-    currentSeed = randomSeed();
-  }
-  seedInput.value = String(currentSeed);
-
+function rebuildWorld() {
   world.dispose();
   world = new World(scene, {
     seed: currentSeed,
@@ -186,6 +182,17 @@ function regenerate() {
   biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
   biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
   walkController.setWorld(world);
+}
+
+function regenerate() {
+  const inputVal = Number(seedInput.value);
+  if (inputVal !== currentSeed) {
+    currentSeed = inputVal || randomSeed();
+  } else {
+    currentSeed = randomSeed();
+  }
+  seedInput.value = String(currentSeed);
+  rebuildWorld();
 }
 
 regenerateBtn.addEventListener("click", regenerate);

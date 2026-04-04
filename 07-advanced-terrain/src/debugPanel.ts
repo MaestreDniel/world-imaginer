@@ -154,7 +154,7 @@ function saveUserPresets(presets: Preset[]): void {
 export class DebugPanel {
   private container: HTMLDivElement;
   private params: GenerationParams;
-  private onApply: (params: GenerationParams) => void;
+  private onApply: (params: GenerationParams, randomizeSeed: boolean) => void;
   private sliderInputs = new Map<string, HTMLInputElement>();
   private sliderValues = new Map<string, HTMLSpanElement>();
   private toggleInputs = new Map<string, HTMLInputElement>();
@@ -162,10 +162,11 @@ export class DebugPanel {
   private sectionHeaders = new Map<string, HTMLDivElement>();
   private presetSelect!: HTMLSelectElement;
   private presets: Preset[];
+  private randomizeSeedCheckbox!: HTMLInputElement;
   private visible = false;
   private minimized = false;
 
-  constructor(params: GenerationParams, onApply: (params: GenerationParams) => void) {
+  constructor(params: GenerationParams, onApply: (params: GenerationParams, randomizeSeed: boolean) => void) {
     this.params = cloneParams(params);
     this.onApply = onApply;
     this.presets = [...BUILT_IN_PRESETS, ...loadUserPresets()];
@@ -240,6 +241,16 @@ export class DebugPanel {
 
     const applyRow = document.createElement("div");
     applyRow.style.cssText = "padding:10px 12px;";
+
+    const randomizeRow = document.createElement("label");
+    randomizeRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer;color:#aaa;font-size:0.7rem;";
+    this.randomizeSeedCheckbox = document.createElement("input");
+    this.randomizeSeedCheckbox.type = "checkbox";
+    this.randomizeSeedCheckbox.checked = false;
+    randomizeRow.appendChild(this.randomizeSeedCheckbox);
+    randomizeRow.appendChild(document.createTextNode("Randomize seed on apply"));
+    applyRow.appendChild(randomizeRow);
+
     const applyBtn = document.createElement("div");
     applyBtn.textContent = "Apply & Regenerate";
     applyBtn.style.cssText = `
@@ -248,7 +259,7 @@ export class DebugPanel {
     `;
     applyBtn.addEventListener("click", () => {
       this.readSlidersIntoParams();
-      this.onApply(cloneParams(this.params));
+      this.onApply(cloneParams(this.params), this.randomizeSeedCheckbox.checked);
     });
     applyBtn.addEventListener("mouseenter", () => { applyBtn.style.background = "#c73e54"; });
     applyBtn.addEventListener("mouseleave", () => { applyBtn.style.background = "#e94560"; });

@@ -110,6 +110,9 @@ const debugPanel = new DebugPanel(currentParams, (newParams) => {
   regenerate();
 });
 
+const paramsToggleBtn = document.getElementById("params-toggle") as HTMLButtonElement;
+paramsToggleBtn.addEventListener("click", () => { debugPanel.toggle(); paramsToggleBtn.blur(); });
+
 function updateFog(radius: number): void {
   const far  = radius * CHUNK_SIZE;
   const near = far * 0.6;

@@ -5,6 +5,7 @@ import { CHUNK_SIZE } from "./chunk";
 import { createBiomeSampler, createBiomeDebugSampler, BIOME_DEFS } from "./biomes";
 import { WalkController, CAMERA_HEIGHT } from "./walkController";
 import { DEFAULT_PARAMS, cloneParams, type GenerationParams } from "./generationParams";
+import { DebugPanel } from "./debugPanel";
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -104,6 +105,11 @@ let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
 let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
 let renderRadius = Number(radiusSlider.value);
 
+const debugPanel = new DebugPanel(currentParams, (newParams) => {
+  currentParams = newParams;
+  regenerate();
+});
+
 function updateFog(radius: number): void {
   const far  = radius * CHUNK_SIZE;
   const near = far * 0.6;
@@ -202,6 +208,7 @@ window.addEventListener("keydown", (e) => {
   if (e.target === seedInput) return;
   const key = e.key.toLowerCase();
   if (key === "f") { setMode(mode === "fly" ? "walk" : "fly"); return; }
+  if (key === "p") { debugPanel.toggle(); return; }
   keysDown.add(key);
 });
 window.addEventListener("keyup", (e) => keysDown.delete(e.key.toLowerCase()));

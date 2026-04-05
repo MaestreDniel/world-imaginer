@@ -553,7 +553,9 @@ export class DebugPanel {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${preset.name.replace(/[\\/:*?"<>|]/g, "_")}.json`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
@@ -561,10 +563,12 @@ export class DebugPanel {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
+    input.style.display = "none";
     input.addEventListener("change", () => {
       const file = input.files?.[0];
       if (!file) return;
       const reader = new FileReader();
+      reader.onerror = () => alert("Failed to read preset file.");
       reader.onload = () => {
         try {
           const data = JSON.parse(reader.result as string);
@@ -578,7 +582,15 @@ export class DebugPanel {
           while (this.presets.some(p => p.name === candidate)) {
             candidate = `${baseName} (${n++})`;
           }
-          const params = { ...cloneParams(DEFAULT_PARAMS), ...data.params } as GenerationParams;
+          const raw = data.params ?? {};
+          const params: GenerationParams = {
+            terrain: { ...DEFAULT_PARAMS.terrain, ...(raw.terrain ?? {}) },
+            erosion: { ...DEFAULT_PARAMS.erosion, ...(raw.erosion ?? {}) },
+            caves:   { ...DEFAULT_PARAMS.caves,   ...(raw.caves   ?? {}) },
+            rivers:  { ...DEFAULT_PARAMS.rivers,  ...(raw.rivers  ?? {}) },
+            biomes:  { ...DEFAULT_PARAMS.biomes,  ...(raw.biomes  ?? {}) },
+            ores:    { ...DEFAULT_PARAMS.ores,     ...(raw.ores    ?? {}) },
+          };
           this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);
           this.refreshPresetOptions();
@@ -589,6 +601,8 @@ export class DebugPanel {
       };
       reader.readAsText(file);
     });
+    document.body.appendChild(input);
     input.click();
+    document.body.removeChild(input);
   }
 }

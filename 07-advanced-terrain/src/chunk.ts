@@ -55,7 +55,8 @@ export function generateChunk(
   const caveNoise = createNoise(seed + 1);
   const oreNoise = createNoise(seed + 2);
   const treeNoise = createNoise(seed + 3);
-  const lavaNoise = createNoise(seed + 4);
+  const lavaNoise      = createNoise(seed + 4);
+  const glowstoneNoise = createNoise(seed + 8);
   const getBiome = createBiomeSampler(seed, config.params.biomes);
 
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
@@ -96,7 +97,6 @@ export function generateChunk(
   // river-like channels into the terrain. Only below a depth threshold
   // so rivers don't cut through mountain peaks.
   const { rivers } = config.params;
-  const glowstoneNoise = createNoise(seed + 8);
   const riverNoise = createNoise(seed + 7);
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {

@@ -28,6 +28,7 @@ function chunkKey(cx: number, cy: number, cz: number): string {
 interface LoadedChunk {
   mesh: THREE.Mesh | null;
   blockData: Uint8Array | null;
+  grassColors: Uint32Array | null;  // needed for light-pass re-meshing
 }
 
 export class World {
@@ -71,7 +72,7 @@ export class World {
     if (this.chunks.has(key)) return; // Already loaded by another path
 
     if (resp.empty) {
-      this.chunks.set(key, { mesh: null, blockData: resp.blockData });
+      this.chunks.set(key, { mesh: null, blockData: resp.blockData, grassColors: resp.grassColors });
     } else {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(resp.positions, 3));
@@ -83,7 +84,7 @@ export class World {
       mesh.position.set(resp.cx * CHUNK_SIZE, resp.cy * CHUNK_SIZE, resp.cz * CHUNK_SIZE);
       this.scene.add(mesh);
 
-      this.chunks.set(key, { mesh, blockData: resp.blockData });
+      this.chunks.set(key, { mesh, blockData: resp.blockData, grassColors: resp.grassColors });
     }
 
     // Dispatch next queued request

@@ -114,7 +114,7 @@ export class LightEngine {
             for (let ly = CHUNK_SIZE - 1; ly >= 0; ly--) {
               const wy = wyBase + ly;
               const blockId = getBlock(wx, wy, wz);
-              if (blockId < 0) continue; // unloaded block
+              if (blockId < 0) { inSky = false; continue; } // unloaded = treat as opaque
               if (inSky && isTransparent(blockId)) {
                 setLight(wx, wy, wz, 15);
                 queue.push([wx, wy, wz, 15]);
@@ -140,8 +140,10 @@ export class LightEngine {
             const wx = cx * CHUNK_SIZE + lx;
             const wy = cy * CHUNK_SIZE + ly;
             const wz = cz * CHUNK_SIZE + lz;
-            setLight(wx, wy, wz, def.lightEmit);
-            queue.push([wx, wy, wz, def.lightEmit]);
+            if (def.lightEmit > getLight(wx, wy, wz)) {
+              setLight(wx, wy, wz, def.lightEmit);
+              queue.push([wx, wy, wz, def.lightEmit]);
+            }
           }
         }
       }

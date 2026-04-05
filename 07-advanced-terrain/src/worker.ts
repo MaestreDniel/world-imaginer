@@ -21,10 +21,6 @@ export interface WorkerRequest {
   cy: number;
   cz: number;
   config: WorldConfig;
-  remesh?: boolean;          // skip generation, use provided blockData
-  blockData?: Uint8Array;    // provided when remesh = true
-  grassColors?: Uint32Array; // provided when remesh = true
-  lightData?: Uint8Array;    // per-voxel light levels 0–15
 }
 
 export interface WorkerResponse {
@@ -42,23 +38,14 @@ export interface WorkerResponse {
 }
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
-  const { id, cx, cy, cz, config, remesh, lightData } = e.data;
+  const { id, cx, cy, cz, config } = e.data;
 
-  let data: ChunkData;
-  let grassColors: Uint32Array;
-
-  if (remesh && e.data.blockData && e.data.grassColors) {
-    // Light-pass re-mesh: skip generation, use provided data
-    data = e.data.blockData;
-    grassColors = e.data.grassColors;
-  } else {
-    const t0 = performance.now();
-    const result: ChunkResult = generateChunk(cx, cy, cz, config);
-    const t1 = performance.now();
-    if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
-    data = result.data;
-    grassColors = result.grassColors;
-  }
+  const t0 = performance.now();
+  const result: ChunkResult = generateChunk(cx, cy, cz, config);
+  const t1 = performance.now();
+  if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
+  const data: ChunkData = result.data;
+  const grassColors: Uint32Array = result.grassColors;
 
   const getNeighbor = (lx: number, ly: number, lz: number): number => {
     if (lx < 0 || lx >= CHUNK_SIZE ||
@@ -69,7 +56,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return data[chunkIndex(lx, ly, lz)];
   };
 
-  const mesh = buildChunkMesh(data, getNeighbor, grassColors, lightData ?? null);
+  const mesh = buildChunkMesh(data, getNeighbor, grassColors);
 
   if (mesh.indices.length === 0) {
     const resp: WorkerResponse = {

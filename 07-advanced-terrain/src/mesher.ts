@@ -37,7 +37,6 @@ export function buildChunkMesh(
   data: ChunkData,
   getNeighbor: NeighborLookup,
   grassColors: Uint32Array,
-  lightData: Uint8Array | null,
 ): MeshData {
   const positions: number[] = [];
   const normals: number[] = [];
@@ -159,26 +158,9 @@ export function buildChunkMesh(
             ? (dir === 1 ? 1.0 : 0.5)
             : axis === 0 ? 0.7 : 0.8;
 
-          // Light level baked from LightEngine (0–15).
-          // Sample from the transparent *neighbor* side of the face — opaque blocks
-          // never receive BFS light themselves, so sampling the solid block gives 0.
-          // Clamp to chunk bounds: out-of-bounds = open air at chunk edge → full bright.
-          let lightLevel = 15;
-          if (lightData) {
-            const lp = [0, 0, 0];
-            lp[axis] = d + dir; // transparent neighbor, not the solid block
-            lp[u] = i;
-            lp[v] = j;
-            const clx = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[0]));
-            const cly = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[1]));
-            const clz = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[2]));
-            lightLevel = lightData[chunkIndex(clx, cly, clz)];
-          }
-          const lightFactor = lightLevel / 15;
-
-          const sr = r * shade * lightFactor;
-          const sg = g * shade * lightFactor;
-          const sb = b * shade * lightFactor;
+          const sr = r * shade;
+          const sg = g * shade;
+          const sb = b * shade;
 
           // Quad corners
           const corner = [0, 0, 0];

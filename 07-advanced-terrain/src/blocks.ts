@@ -70,7 +70,7 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
   [Block.SnowBrick]:    { name: "Snow Brick",    color: 0xDCE8EC, solid: true,  transparent: false, lightEmit: 0 },
   [Block.OakPlanks]:    { name: "Oak Planks",    color: 0xBC8F5E, solid: true,  transparent: false, lightEmit: 0 },
   [Block.Cobblestone]:  { name: "Cobblestone",   color: 0x6B6B6B, solid: true,  transparent: false, lightEmit: 0 },
-  [Block.Glass]:        { name: "Glass",         color: 0xCCE8F0, solid: true,  transparent: false, lightEmit: 0 },
+  [Block.Glass]:        { name: "Glass",         color: 0xCCE8F0, solid: true,  transparent: true,  lightEmit: 0 },
   [Block.Lava]:         { name: "Lava",          color: 0xFF6600, solid: true,  transparent: false, lightEmit: 15 },
   [Block.Glowstone]:    { name: "Glowstone",     color: 0xFFDD44, solid: true,  transparent: false, lightEmit: 15 },
 };

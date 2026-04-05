@@ -37,6 +37,7 @@ export function buildChunkMesh(
   data: ChunkData,
   getNeighbor: NeighborLookup,
   grassColors: Uint32Array,
+  lightData: Uint8Array | null,
 ): MeshData {
   const positions: number[] = [];
   const normals: number[] = [];
@@ -158,9 +159,31 @@ export function buildChunkMesh(
             ? (dir === 1 ? 1.0 : 0.5)
             : axis === 0 ? 0.7 : 0.8;
 
-          const sr = r * shade;
-          const sg = g * shade;
-          const sb = b * shade;
+          let lightLevel = 15;
+          if (lightData) {
+            const lp = [0, 0, 0];
+            lp[axis] = d + dir;
+            lp[u] = i;
+            lp[v] = j;
+
+            if (
+              lp[0] < 0 || lp[0] >= CHUNK_SIZE ||
+              lp[1] < 0 || lp[1] >= CHUNK_SIZE ||
+              lp[2] < 0 || lp[2] >= CHUNK_SIZE
+            ) {
+              lightLevel = 15;
+            } else {
+              lightLevel = lightData[chunkIndex(lp[0], lp[1], lp[2])];
+            }
+
+            lightLevel = Math.max(lightLevel, def.lightEmit);
+          }
+
+          const lightFactor = 0.2 + (lightLevel / 15) * 0.8;
+
+          const sr = r * shade * lightFactor;
+          const sg = g * shade * lightFactor;
+          const sb = b * shade * lightFactor;
 
           // Quad corners
           const corner = [0, 0, 0];

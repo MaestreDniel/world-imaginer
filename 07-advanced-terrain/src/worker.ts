@@ -13,6 +13,7 @@
  */
 
 import { generateChunk, CHUNK_SIZE, type WorldConfig, chunkIndex, type ChunkResult, type ChunkData } from "./chunk";
+import { computeChunkLocalLight } from "./lighting";
 import { buildChunkMesh } from "./mesher";
 
 export interface WorkerRequest {
@@ -46,6 +47,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
   const data: ChunkData = result.data;
   const grassColors: Uint32Array = result.grassColors;
+  const lightData = computeChunkLocalLight(data);
 
   const getNeighbor = (lx: number, ly: number, lz: number): number => {
     if (lx < 0 || lx >= CHUNK_SIZE ||
@@ -56,7 +58,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return data[chunkIndex(lx, ly, lz)];
   };
 
-  const mesh = buildChunkMesh(data, getNeighbor, grassColors);
+  const mesh = buildChunkMesh(data, getNeighbor, grassColors, lightData);
 
   if (mesh.indices.length === 0) {
     const resp: WorkerResponse = {

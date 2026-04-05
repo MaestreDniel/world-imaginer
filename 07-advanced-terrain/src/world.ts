@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CHUNK_SIZE, chunkIndex, type WorldConfig, DEFAULT_CONFIG } from "./chunk";
 import { BLOCK_DEFS } from "./blocks";
 import type { WorkerRequest, WorkerResponse } from "./worker";
+import { LightEngine } from "./lighting";
 
 /**
  * 3D world manager — optimised with Web Workers.
@@ -41,6 +42,9 @@ export class World {
   private pendingQueue: WorkerRequest[] = [];
   private inFlight = new Set<string>();
   private nextId = 0;
+  private lightEngine = new LightEngine();
+  private lightDirty = false;
+  private remeshInFlight = new Set<string>();
 
   constructor(scene: THREE.Scene, config: Partial<WorldConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -68,11 +72,51 @@ export class World {
     const key = chunkKey(resp.cx, resp.cy, resp.cz);
     this.inFlight.delete(key);
 
+    // Re-mesh response: swap geometry and return
+    if (this.remeshInFlight.has(key)) {
+      this.remeshInFlight.delete(key);
+      const existing = this.chunks.get(key);
+      if (existing) {
+        if (!resp.empty) {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute("position", new THREE.Float32BufferAttribute(resp.positions, 3));
+          geometry.setAttribute("normal", new THREE.Float32BufferAttribute(resp.normals, 3));
+          geometry.setAttribute("color", new THREE.Float32BufferAttribute(resp.colors, 3));
+          geometry.setIndex(new THREE.Uint32BufferAttribute(resp.indices, 1));
+
+          if (existing.mesh) {
+            existing.mesh.geometry.dispose();
+            existing.mesh.geometry = geometry;
+          } else {
+            const mesh = new THREE.Mesh(geometry, this.material);
+            mesh.position.set(resp.cx * CHUNK_SIZE, resp.cy * CHUNK_SIZE, resp.cz * CHUNK_SIZE);
+            this.scene.add(mesh);
+            existing.mesh = mesh;
+          }
+        }
+        // blockData and grassColors are NOT updated — keep originals
+      }
+      this.dispatchNext();
+
+      // After remesh, check if a new light pass is needed (more chunks may have loaded)
+      if (
+        this.pendingQueue.length === 0 &&
+        this.inFlight.size === 0 &&
+        this.remeshInFlight.size === 0 &&
+        this.lightDirty
+      ) {
+        this.runLightPass();
+      }
+
+      return;
+    }
+
     // Check if chunk is still needed (might have been unloaded while processing)
     if (this.chunks.has(key)) return; // Already loaded by another path
 
     if (resp.empty) {
       this.chunks.set(key, { mesh: null, blockData: resp.blockData, grassColors: resp.grassColors });
+      this.lightDirty = true;
     } else {
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(resp.positions, 3));
@@ -85,10 +129,20 @@ export class World {
       this.scene.add(mesh);
 
       this.chunks.set(key, { mesh, blockData: resp.blockData, grassColors: resp.grassColors });
+      this.lightDirty = true;
     }
 
     // Dispatch next queued request
     this.dispatchNext();
+
+    if (
+      this.pendingQueue.length === 0 &&
+      this.inFlight.size === 0 &&
+      this.remeshInFlight.size === 0 &&
+      this.lightDirty
+    ) {
+      this.runLightPass();
+    }
   }
 
   private dispatchNext(): void {
@@ -98,6 +152,49 @@ export class World {
       if (!req) return;
       this.workerBusy[i] = true;
       this.workers[i].postMessage(req);
+    }
+  }
+
+  private runLightPass(): void {
+    this.lightDirty = false;
+
+    const dirty = this.lightEngine.recompute(this.chunks);
+
+    for (const key of dirty) {
+      const chunk = this.chunks.get(key);
+      if (!chunk || !chunk.blockData || !chunk.grassColors) continue;
+      if (this.remeshInFlight.has(key)) continue;
+
+      const [cx, cy, cz] = key.split(",").map(Number);
+      const lightData = this.lightEngine.getLightData(key);
+      if (!lightData) continue;
+
+      this.remeshInFlight.add(key);
+
+      const req: WorkerRequest = {
+        id: this.nextId++,
+        cx, cy, cz,
+        config: this.config,
+        remesh: true,
+        blockData: new Uint8Array(chunk.blockData),
+        grassColors: new Uint32Array(chunk.grassColors),
+        lightData,
+      };
+
+      // Dispatch to a free worker, or queue if all busy
+      let dispatched = false;
+      for (let i = 0; i < this.workers.length; i++) {
+        if (this.workerBusy[i]) continue;
+        this.workerBusy[i] = true;
+        this.workers[i].postMessage(req, {
+          transfer: [req.blockData!.buffer, req.grassColors!.buffer, req.lightData!.buffer],
+        });
+        dispatched = true;
+        break;
+      }
+      if (!dispatched) {
+        this.pendingQueue.push(req);
+      }
     }
   }
 
@@ -163,6 +260,7 @@ export class World {
           entry.mesh.geometry.dispose();
         }
         this.chunks.delete(key);
+        this.lightDirty = true;
       }
     }
   }

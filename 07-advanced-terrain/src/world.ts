@@ -45,6 +45,9 @@ export class World {
   private lightEngine = new LightEngine();
   private lightDirty = false;
   private remeshInFlight = new Set<string>();
+  private lastLightPass = 0;
+  private lightPassTimer: ReturnType<typeof setTimeout> | null = null;
+  private static readonly LIGHT_PASS_DEBOUNCE_MS = 800;
 
   constructor(scene: THREE.Scene, config: Partial<WorldConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -96,17 +99,7 @@ export class World {
         // blockData and grassColors are NOT updated — keep originals
       }
       this.dispatchNext();
-
-      // After remesh, check if a new light pass is needed (more chunks may have loaded)
-      if (
-        this.pendingQueue.length === 0 &&
-        this.inFlight.size === 0 &&
-        this.remeshInFlight.size === 0 &&
-        this.lightDirty
-      ) {
-        this.runLightPass();
-      }
-
+      if (this.lightDirty) this.scheduleLightPass();
       return;
     }
 
@@ -133,17 +126,8 @@ export class World {
       this.lightDirty = true;
     }
 
-    // Dispatch next queued request
     this.dispatchNext();
-
-    if (
-      this.pendingQueue.length === 0 &&
-      this.inFlight.size === 0 &&
-      this.remeshInFlight.size === 0 &&
-      this.lightDirty
-    ) {
-      this.runLightPass();
-    }
+    if (this.lightDirty) this.scheduleLightPass();
   }
 
   private dispatchNext(): void {
@@ -161,8 +145,20 @@ export class World {
     }
   }
 
+  private scheduleLightPass(): void {
+    if (this.lightPassTimer !== null) return; // already scheduled
+    const now = performance.now();
+    const sinceLastMs = now - this.lastLightPass;
+    const delay = Math.max(0, World.LIGHT_PASS_DEBOUNCE_MS - sinceLastMs);
+    this.lightPassTimer = setTimeout(() => {
+      this.lightPassTimer = null;
+      if (this.lightDirty) this.runLightPass();
+    }, delay);
+  }
+
   private runLightPass(): void {
     this.lightDirty = false;
+    this.lastLightPass = performance.now();
 
     const dirty = this.lightEngine.recompute(this.chunks);
 
@@ -309,6 +305,7 @@ export class World {
     this.pendingQueue.length = 0;
     this.inFlight.clear();
     this.remeshInFlight.clear();
+    if (this.lightPassTimer !== null) { clearTimeout(this.lightPassTimer); this.lightPassTimer = null; }
     for (const w of this.workers) w.terminate();
     this.workers.length = 0;
     this.workerBusy.length = 0;

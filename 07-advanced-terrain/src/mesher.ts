@@ -159,10 +159,21 @@ export function buildChunkMesh(
             ? (dir === 1 ? 1.0 : 0.5)
             : axis === 0 ? 0.7 : 0.8;
 
-          // Light level baked from LightEngine (0–15). Default 1.0 (full bright) if no light data.
-          const voxPos = [0, 0, 0];
-          voxPos[axis] = d; voxPos[u] = i; voxPos[v] = j;
-          const lightLevel = lightData ? lightData[chunkIndex(voxPos[0], voxPos[1], voxPos[2])] : 15;
+          // Light level baked from LightEngine (0–15).
+          // Sample from the transparent *neighbor* side of the face — opaque blocks
+          // never receive BFS light themselves, so sampling the solid block gives 0.
+          // Clamp to chunk bounds: out-of-bounds = open air at chunk edge → full bright.
+          let lightLevel = 15;
+          if (lightData) {
+            const lp = [0, 0, 0];
+            lp[axis] = d + dir; // transparent neighbor, not the solid block
+            lp[u] = i;
+            lp[v] = j;
+            const clx = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[0]));
+            const cly = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[1]));
+            const clz = Math.max(0, Math.min(CHUNK_SIZE - 1, lp[2]));
+            lightLevel = lightData[chunkIndex(clx, cly, clz)];
+          }
           const lightFactor = lightLevel / 15;
 
           const sr = r * shade * lightFactor;

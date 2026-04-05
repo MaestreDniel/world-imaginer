@@ -295,10 +295,17 @@ export class DebugPanel {
     exportBtn.style.cssText = "background:#0f3460;padding:3px 6px;border-radius:3px;border:1px solid #555;cursor:pointer;font-size:0.65rem;";
     exportBtn.addEventListener("click", () => this.exportPreset());
 
+    const importBtn = document.createElement("span");
+    importBtn.textContent = "↑";
+    importBtn.title = "Import preset";
+    importBtn.style.cssText = "background:#0f3460;padding:3px 6px;border-radius:3px;border:1px solid #555;cursor:pointer;font-size:0.65rem;";
+    importBtn.addEventListener("click", () => this.importPreset());
+
     row.appendChild(this.presetSelect);
     row.appendChild(saveBtn);
     row.appendChild(delBtn);
     row.appendChild(exportBtn);
+    row.appendChild(importBtn);
     return row;
   }
 
@@ -548,5 +555,39 @@ export class DebugPanel {
     a.download = `${preset.name.replace(/[\\/:*?"<>|]/g, "_")}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  private importPreset(): void {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result as string);
+          if (data.worldImaginerPreset !== true) {
+            alert("Not a valid preset file.");
+            return;
+          }
+          const baseName: string = data.name ?? "Imported Preset";
+          let candidate = baseName;
+          let n = 2;
+          while (this.presets.some(p => p.name === candidate)) {
+            candidate = `${baseName} (${n++})`;
+          }
+          this.presets.push({ name: candidate, params: data.params, builtIn: false });
+          saveUserPresets(this.presets);
+          this.refreshPresetOptions();
+          this.presetSelect.value = candidate;
+        } catch {
+          alert("Failed to read preset file.");
+        }
+      };
+      reader.readAsText(file);
+    });
+    input.click();
   }
 }

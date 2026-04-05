@@ -70,7 +70,6 @@ export class World {
     this.workerBusy[workerIdx] = false;
 
     const key = chunkKey(resp.cx, resp.cy, resp.cz);
-    this.inFlight.delete(key);
 
     // Re-mesh response: swap geometry and return
     if (this.remeshInFlight.has(key)) {
@@ -110,6 +109,8 @@ export class World {
 
       return;
     }
+
+    this.inFlight.delete(key);
 
     // Check if chunk is still needed (might have been unloaded while processing)
     if (this.chunks.has(key)) return; // Already loaded by another path
@@ -200,7 +201,7 @@ export class World {
 
   private requestChunk(cx: number, cy: number, cz: number): void {
     const key = chunkKey(cx, cy, cz);
-    if (this.chunks.has(key) || this.inFlight.has(key)) return;
+    if (this.chunks.has(key) || this.inFlight.has(key) || this.remeshInFlight.has(key)) return;
 
     this.inFlight.add(key);
     const req: WorkerRequest = {
@@ -289,7 +290,7 @@ export class World {
   }
 
   pendingCount(): number {
-    return this.pendingQueue.length + this.inFlight.size;
+    return this.pendingQueue.length + this.inFlight.size + this.remeshInFlight.size;
   }
 
   dispose(): void {
@@ -302,6 +303,7 @@ export class World {
     this.chunks.clear();
     this.pendingQueue.length = 0;
     this.inFlight.clear();
+    this.remeshInFlight.clear();
     for (const w of this.workers) w.terminate();
     this.workers.length = 0;
     this.workerBusy.length = 0;

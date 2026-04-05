@@ -113,7 +113,7 @@ export class World {
     this.inFlight.delete(key);
 
     // Check if chunk is still needed (might have been unloaded while processing)
-    if (this.chunks.has(key)) return; // Already loaded by another path
+    if (this.chunks.has(key)) { this.dispatchNext(); return; }
 
     if (resp.empty) {
       this.chunks.set(key, { mesh: null, blockData: resp.blockData, grassColors: resp.grassColors });
@@ -152,7 +152,12 @@ export class World {
       const req = this.pendingQueue.shift();
       if (!req) return;
       this.workerBusy[i] = true;
-      this.workers[i].postMessage(req);
+      // Transfer typed array buffers for remesh requests to avoid serialisation cost
+      const transfers: Transferable[] = [];
+      if (req.blockData)   transfers.push(req.blockData.buffer);
+      if (req.grassColors) transfers.push(req.grassColors.buffer);
+      if (req.lightData)   transfers.push(req.lightData.buffer);
+      this.workers[i].postMessage(req, transfers.length ? { transfer: transfers } : undefined);
     }
   }
 

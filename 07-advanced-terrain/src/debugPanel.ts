@@ -545,7 +545,7 @@ export class DebugPanel {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${preset.name}.json`;
+    a.download = `${preset.name.replace(/[\\/:*?"<>|]/g, "_")}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }

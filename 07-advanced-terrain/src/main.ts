@@ -29,6 +29,8 @@ const TRACKS = [
   '../public/assets/living_mice.ogg',
   '../public/assets/minecraft.ogg',
   '../public/assets/wet_hands.ogg',
+  '../public/assets/danny.ogg',
+  '../public/assets/mice_on_venus.ogg',
 ];
 
 const sound = new THREE.Audio(listener);

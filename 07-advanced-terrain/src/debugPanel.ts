@@ -289,9 +289,16 @@ export class DebugPanel {
     delBtn.style.cssText = "background:#0f3460;padding:3px 6px;border-radius:3px;border:1px solid #555;cursor:pointer;font-size:0.65rem;";
     delBtn.addEventListener("click", () => this.deletePreset());
 
+    const exportBtn = document.createElement("span");
+    exportBtn.textContent = "↓";
+    exportBtn.title = "Export preset";
+    exportBtn.style.cssText = "background:#0f3460;padding:3px 6px;border-radius:3px;border:1px solid #555;cursor:pointer;font-size:0.65rem;";
+    exportBtn.addEventListener("click", () => this.exportPreset());
+
     row.appendChild(this.presetSelect);
     row.appendChild(saveBtn);
     row.appendChild(delBtn);
+    row.appendChild(exportBtn);
     return row;
   }
 
@@ -523,5 +530,23 @@ export class DebugPanel {
     this.presets = this.presets.filter(p => p.name !== name);
     saveUserPresets(this.presets);
     this.refreshPresetOptions();
+  }
+
+  private exportPreset(): void {
+    const name = this.presetSelect.value;
+    const preset = this.presets.find(p => p.name === name);
+    if (!preset) return;
+    const data = JSON.stringify(
+      { worldImaginerPreset: true, name: preset.name, params: preset.params },
+      null,
+      2,
+    );
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${preset.name}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

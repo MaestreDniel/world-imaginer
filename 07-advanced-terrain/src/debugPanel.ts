@@ -572,13 +572,14 @@ export class DebugPanel {
             alert("Not a valid preset file.");
             return;
           }
-          const baseName: string = data.name ?? "Imported Preset";
+          const baseName: string = (String(data.name ?? "Imported Preset").trim().slice(0, 64)) || "Imported Preset";
           let candidate = baseName;
           let n = 2;
           while (this.presets.some(p => p.name === candidate)) {
             candidate = `${baseName} (${n++})`;
           }
-          this.presets.push({ name: candidate, params: data.params, builtIn: false });
+          const params = { ...cloneParams(DEFAULT_PARAMS), ...data.params } as GenerationParams;
+          this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);
           this.refreshPresetOptions();
           this.presetSelect.value = candidate;

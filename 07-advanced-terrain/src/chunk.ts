@@ -1,4 +1,4 @@
-import { Block } from "./blocks";
+import { Block, BLOCK_DEFS } from "./blocks";
 import { createNoise } from "./perlin";
 import { createBiomeSampler, BIOME_DEFS, Biome, computeBlendedBiomeParams } from "./biomes";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
@@ -55,6 +55,7 @@ export function generateChunk(
   const caveNoise = createNoise(seed + 1);
   const oreNoise = createNoise(seed + 2);
   const treeNoise = createNoise(seed + 3);
+  const lavaNoise = createNoise(seed + 4);
   const getBiome = createBiomeSampler(seed, config.params.biomes);
 
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
@@ -95,6 +96,7 @@ export function generateChunk(
   // river-like channels into the terrain. Only below a depth threshold
   // so rivers don't cut through mountain peaks.
   const { rivers } = config.params;
+  const glowstoneNoise = createNoise(seed + 8);
   const riverNoise = createNoise(seed + 7);
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -263,6 +265,39 @@ export function generateChunk(
         if (erosion > threshold) {
           data[chunkIndex(lx, ly, lz)] = Block.Air;
         }
+      }
+    }
+  }
+
+  // ── Lava placement (deep chunks only) ────────────────────────────────────
+  // Replace cave air with lava in chunks at world Y ≤ -1.
+  if (chunkY <= -1) {
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          if (data[chunkIndex(lx, ly, lz)] !== Block.Air) continue;
+          const wx = worldXOff + lx;
+          const wz = worldZOff + lz;
+          const n = lavaNoise.perlin2D(wx / 20, wz / 20);
+          if (n > 0.7) data[chunkIndex(lx, ly, lz)] = Block.Lava;
+        }
+      }
+    }
+  }
+
+  // ── Glowstone placement (cave ceilings, all depths) ───────────────────────
+  // Replace cave air that has a solid block directly above it (ceiling).
+  for (let ly = 0; ly < CHUNK_SIZE - 1; ly++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        if (data[chunkIndex(lx, ly, lz)] !== Block.Air) continue;
+        const above = data[chunkIndex(lx, ly + 1, lz)];
+        const aboveDef = BLOCK_DEFS[above];
+        if (!aboveDef || aboveDef.transparent) continue; // no solid ceiling
+        const wx = worldXOff + lx;
+        const wz = worldZOff + lz;
+        const n = glowstoneNoise.perlin2D(wx / 15, wz / 15);
+        if (n > 0.65) data[chunkIndex(lx, ly, lz)] = Block.Glowstone;
       }
     }
   }

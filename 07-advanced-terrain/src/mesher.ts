@@ -33,7 +33,12 @@ export interface MeshData {
 
 type NeighborLookup = (x: number, y: number, z: number) => number;
 
-export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup, grassColors: Uint32Array): MeshData {
+export function buildChunkMesh(
+  data: ChunkData,
+  getNeighbor: NeighborLookup,
+  grassColors: Uint32Array,
+  lightData: Uint8Array | null,
+): MeshData {
   const positions: number[] = [];
   const normals: number[] = [];
   const colors: number[] = [];
@@ -151,12 +156,18 @@ export function buildChunkMesh(data: ChunkData, getNeighbor: NeighborLookup, gra
 
           // Simple directional shading
           const shade = axis === 1
-            ? (dir === 1 ? 1.0 : 0.5)  // top bright, bottom dark
-            : axis === 0 ? 0.7 : 0.8;  // sides slightly darker
+            ? (dir === 1 ? 1.0 : 0.5)
+            : axis === 0 ? 0.7 : 0.8;
 
-          const sr = r * shade;
-          const sg = g * shade;
-          const sb = b * shade;
+          // Light level baked from LightEngine (0–15). Default 1.0 (full bright) if no light data.
+          const voxPos = [0, 0, 0];
+          voxPos[axis] = d; voxPos[u] = i; voxPos[v] = j;
+          const lightLevel = lightData ? lightData[chunkIndex(voxPos[0], voxPos[1], voxPos[2])] : 15;
+          const lightFactor = lightLevel / 15;
+
+          const sr = r * shade * lightFactor;
+          const sg = g * shade * lightFactor;
+          const sb = b * shade * lightFactor;
 
           // Quad corners
           const corner = [0, 0, 0];

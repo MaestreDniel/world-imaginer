@@ -89,7 +89,7 @@ if (pendingQueue.length === 0 && inFlight.size === 0 && this.lightDirty) {
 ### Light pass sequence
 
 1. `lightEngine.recompute(this.chunks)` → returns `Set<chunkKey>` of dirty chunks
-2. For each dirty chunk: re-dispatch to a worker with existing `blockData` + new `lightData` slice
+2. For each dirty chunk: re-dispatch to a worker with **copies** of `blockData` and `lightData` (`new Uint8Array(chunk.blockData)` and `new Uint8Array(lightSlice)`). Copies are required — transferring the originals would detach them from main-thread storage.
 3. Worker returns re-meshed geometry → swap out the old `THREE.Mesh` geometry in-place (dispose old, assign new)
 4. Clear `lightDirty`
 
@@ -144,13 +144,13 @@ Both placements use `createNoise(seed + N)` with unused seed offsets. No new noi
 
 ### Lava placement
 
-After cave carving, for each cave block in the bottom 25% of a chunk's Y range:
+Only runs in chunks with `cy <= -1` (world Y ≤ -1 — the deep underground layers). After cave carving, for each cave block in that chunk:
 
 ```
 if noise(x/20, z/20) > 0.7 → replace Cave with Lava
 ```
 
-Creates small pools and rivers at depth.
+Creates small pools and rivers at depth. The `cy` guard is checked in `generateChunk` before running this pass.
 
 ### Glowstone placement
 

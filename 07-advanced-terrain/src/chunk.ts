@@ -359,18 +359,18 @@ export function generateChunk(
 
   if (centerSurfLocal >= 4 && centerSurfLocal < CHUNK_SIZE - 8 && centerSurfaceH > waterLevel) {
     // Pyramid in desert (~20% of desert chunks)
-    if (centerBiome === Biome.Desert && structVal > 0.2) {
+    if (centerBiome === Biome.Desert && structVal > 0.4) {
       placePyramid(data, centerLx, centerSurfLocal, centerLz);
     }
     // Igloo in tundra (~25% of tundra chunks)
-    else if (centerBiome === Biome.Tundra && structVal > 0.15) {
+    else if (centerBiome === Biome.Tundra && structVal > 0.55) {
       placeIgloo(data, centerLx, centerSurfLocal, centerLz);
     }
     // Village houses in plains/savanna (~20% of chunks)
-    else if ((centerBiome === Biome.Plains || centerBiome === Biome.Savanna) && structVal > 0.2) {
+    else if ((centerBiome === Biome.Plains || centerBiome === Biome.Savanna) && structVal > 0.35) {
       placeHouse(data, centerLx, centerSurfLocal, centerLz);
       // Often place a second house nearby
-      if (structVal > 0.3 && centerLx + 10 < CHUNK_SIZE - 1 && centerLz + 8 < CHUNK_SIZE - 1) {
+      if (structVal > 0.4 && centerLx + 10 < CHUNK_SIZE - 1 && centerLz + 8 < CHUNK_SIZE - 1) {
         placeHouse(data, centerLx + 8, centerSurfLocal, centerLz + 6);
       }
     }

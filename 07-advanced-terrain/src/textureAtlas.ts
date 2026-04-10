@@ -160,8 +160,8 @@ export function buildAtlasTexture(): THREE.CanvasTexture {
   drawWoodBark(ctx, TILE_IDS.SpruceBark, 0x3E2723);
 
   const texture       = new THREE.CanvasTexture(canvas);
-  texture.magFilter   = THREE.NearestFilter;
-  texture.minFilter   = THREE.NearestFilter;
+  texture.magFilter   = THREE.NearestFilter;           // pixelated up close
+  texture.minFilter   = THREE.NearestMipmapLinearFilter; // mipmapped at distance (auto-generated)
   texture.flipY       = false;
   return texture;
 }

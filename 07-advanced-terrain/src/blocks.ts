@@ -39,8 +39,10 @@ export const Block = {
 export const ATLAS_COLS      = 8;
 export const ATLAS_ROWS      = 8;
 export const ATLAS_TILE_SIZE   = 16; // px of drawable content per tile
-export const ATLAS_TILE_PAD    = 1;  // 1-px extruded border around each tile slot
-export const ATLAS_TILE_PADDED = ATLAS_TILE_SIZE + 2 * ATLAS_TILE_PAD; // 18 — physical slot size
+// Keep each atlas slot power-of-two sized so GPU-generated mip levels remain
+// aligned to tile boundaries instead of bleeding neighbouring slots together.
+export const ATLAS_TILE_PAD    = 8;  // 8-px extruded border around each tile slot
+export const ATLAS_TILE_PADDED = 32; // 16 content + 8 pad on each side
 
 /**
  * Tile index → slot in the 8×8 atlas.

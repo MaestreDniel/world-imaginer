@@ -87,11 +87,11 @@ export function buildChunkMesh(
 
           const tCol = tileIdx % ATLAS_COLS;
           const tRow = (tileIdx / ATLAS_COLS) | 0;
-          // UV addresses the inner 16×16 content area of each padded 18×18 slot.
+          // UV addresses the inner 16×16 content area of each padded 32×32 slot.
           // Half-texel inset keeps UVs off the content boundary so NearestFilter
           // never bleeds into the extruded-edge region even at the closest mip level.
-          const atlasW = ATLAS_COLS * ATLAS_TILE_PADDED;  // 144
-          const atlasH = ATLAS_ROWS * ATLAS_TILE_PADDED;  // 144
+          const atlasW = ATLAS_COLS * ATLAS_TILE_PADDED;  // 256
+          const atlasH = ATLAS_ROWS * ATLAS_TILE_PADDED;  // 256
           const htU = 0.5 / atlasW;
           const htV = 0.5 / atlasH;
           const u0 = (tCol * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasW + htU;

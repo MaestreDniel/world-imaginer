@@ -141,14 +141,16 @@ function extrudeTile(ctx: CanvasRenderingContext2D, col: number, row: number): v
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Build a 128×128 CanvasTexture atlas with procedural placeholder tiles.
+ * Build a 256×256 CanvasTexture atlas with procedural placeholder tiles.
+ * Each 16×16 tile sits inside a 32×32 power-of-two slot with an extruded
+ * gutter so GPU-generated mipmaps stay isolated for the useful mip range.
  * To swap in a real atlas: replace this function with a TextureLoader call
  * that returns a Promise<THREE.Texture> — no other files need to change.
  */
 export function buildAtlasTexture(): THREE.CanvasTexture {
   const canvas    = document.createElement("canvas");
-  canvas.width    = ATLAS_COLS * ATLAS_TILE_PADDED;   // 144
-  canvas.height   = ATLAS_ROWS * ATLAS_TILE_PADDED;   // 144
+  canvas.width    = ATLAS_COLS * ATLAS_TILE_PADDED;   // 256
+  canvas.height   = ATLAS_ROWS * ATLAS_TILE_PADDED;   // 256
   const ctx = canvas.getContext("2d")!;
 
   // Uniform noise tiles: [tileIdx, baseColor, variance]
@@ -197,8 +199,11 @@ export function buildAtlasTexture(): THREE.CanvasTexture {
   }
 
   const texture       = new THREE.CanvasTexture(canvas);
-  texture.magFilter   = THREE.NearestFilter;           // pixelated up close
-  texture.minFilter   = THREE.NearestMipmapLinearFilter; // mipmapped at distance (auto-generated)
+  texture.magFilter   = THREE.NearestFilter;              // pixelated up close
+  texture.minFilter   = THREE.LinearMipmapLinearFilter;   // smooth trilinear minification at distance
+  texture.wrapS       = THREE.ClampToEdgeWrapping;
+  texture.wrapT       = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = true;
   texture.flipY       = false;
   return texture;
 }

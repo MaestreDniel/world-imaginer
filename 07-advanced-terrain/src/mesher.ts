@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, chunkIndex, type ChunkData } from "./chunk";
-import { BLOCK_DEFS, Block, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE } from "./blocks";
+import { BLOCK_DEFS, Block, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE, ATLAS_TILE_PAD, ATLAS_TILE_PADDED } from "./blocks";
 
 /**
  * Per-face quad emitter — replaces the greedy mesher.
@@ -87,12 +87,17 @@ export function buildChunkMesh(
 
           const tCol = tileIdx % ATLAS_COLS;
           const tRow = (tileIdx / ATLAS_COLS) | 0;
-          // Half-texel inset: keeps UVs off tile boundaries so NearestFilter
-          // never bleeds into an adjacent (possibly empty/black) tile slot.
-          const htU = 0.5 / (ATLAS_COLS * ATLAS_TILE_SIZE);
-          const htV = 0.5 / (ATLAS_ROWS * ATLAS_TILE_SIZE);
-          const u0 = tCol / ATLAS_COLS + htU,       u1 = (tCol + 1) / ATLAS_COLS - htU;
-          const v0 = tRow / ATLAS_ROWS + htV,       v1 = (tRow + 1) / ATLAS_ROWS - htV;
+          // UV addresses the inner 16×16 content area of each padded 18×18 slot.
+          // Half-texel inset keeps UVs off the content boundary so NearestFilter
+          // never bleeds into the extruded-edge region even at the closest mip level.
+          const atlasW = ATLAS_COLS * ATLAS_TILE_PADDED;  // 144
+          const atlasH = ATLAS_ROWS * ATLAS_TILE_PADDED;  // 144
+          const htU = 0.5 / atlasW;
+          const htV = 0.5 / atlasH;
+          const u0 = (tCol * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasW + htU;
+          const u1 = (tCol * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasW - htU;
+          const v0 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasH + htV;
+          const v1 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasH - htV;
 
           // ── Vertex color (white unless grass top/side for biome tint) ────
           let packedColor = 0xFFFFFF;

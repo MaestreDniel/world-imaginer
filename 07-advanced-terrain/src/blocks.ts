@@ -38,7 +38,9 @@ export const Block = {
 // ── Atlas layout ──────────────────────────────────────────────────────────────
 export const ATLAS_COLS      = 8;
 export const ATLAS_ROWS      = 8;
-export const ATLAS_TILE_SIZE = 16; // px per tile
+export const ATLAS_TILE_SIZE   = 16; // px of drawable content per tile
+export const ATLAS_TILE_PAD    = 1;  // 1-px extruded border around each tile slot
+export const ATLAS_TILE_PADDED = ATLAS_TILE_SIZE + 2 * ATLAS_TILE_PAD; // 18 — physical slot size
 
 /**
  * Tile index → slot in the 8×8 atlas.

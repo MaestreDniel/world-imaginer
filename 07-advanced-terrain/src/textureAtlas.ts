@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { TILE_IDS, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE } from "./blocks";
+import { TILE_IDS, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE, ATLAS_TILE_PAD, ATLAS_TILE_PADDED } from "./blocks";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -16,6 +16,10 @@ function makeLcg(seed: number): () => number {
 function tc(idx: number): number { return idx % ATLAS_COLS; }
 /** Row index for a tile slot. */
 function tr(idx: number): number { return Math.floor(idx / ATLAS_COLS); }
+/** Canvas X origin of the drawable content area for tile slot (col, row). */
+function tileX(col: number): number { return col * ATLAS_TILE_PADDED + ATLAS_TILE_PAD; }
+/** Canvas Y origin of the drawable content area for tile slot (col, row). */
+function tileY(row: number): number { return row * ATLAS_TILE_PADDED + ATLAS_TILE_PAD; }
 
 /**
  * Fill a tile slot with a base color plus per-pixel brightness noise.
@@ -28,8 +32,8 @@ function drawNoiseTile(
   variance: number,
   seed: number,
 ): void {
-  const x0  = col * ATLAS_TILE_SIZE;
-  const y0  = row * ATLAS_TILE_SIZE;
+  const x0  = tileX(col);
+  const y0  = tileY(row);
   const rng = makeLcg(seed);
   const rb  = (color >> 16) & 255;
   const gb  = (color >>  8) & 255;
@@ -50,8 +54,8 @@ function drawNoiseTile(
 
 function drawGrassTop(ctx: CanvasRenderingContext2D): void {
   drawNoiseTile(ctx, tc(TILE_IDS.GrassTop), tr(TILE_IDS.GrassTop), 0x4CAF50, 0.15, TILE_IDS.GrassTop);
-  const x0  = tc(TILE_IDS.GrassTop) * ATLAS_TILE_SIZE;
-  const y0  = tr(TILE_IDS.GrassTop) * ATLAS_TILE_SIZE;
+  const x0  = tileX(tc(TILE_IDS.GrassTop));
+  const y0  = tileY(tr(TILE_IDS.GrassTop));
   const rng = makeLcg(TILE_IDS.GrassTop + 1000);
   ctx.fillStyle = "#2E7D32";
   for (let i = 0; i < 14; i++) {
@@ -70,15 +74,15 @@ function drawGrassSide(ctx: CanvasRenderingContext2D): void {
   drawNoiseTile(ctx, col, row, 0x8B5E3C, 0.10, TILE_IDS.GrassSide);
   // Green strip on top 3 rows
   ctx.fillStyle = "#4CAF50";
-  ctx.fillRect(col * ATLAS_TILE_SIZE, row * ATLAS_TILE_SIZE, ATLAS_TILE_SIZE, 3);
+  ctx.fillRect(tileX(col), tileY(row), ATLAS_TILE_SIZE, 3);
 }
 
 function drawWoodEnd(ctx: CanvasRenderingContext2D, tileIdx: number, baseColor: number): void {
   const col = tc(tileIdx);
   const row = tr(tileIdx);
   drawNoiseTile(ctx, col, row, baseColor, 0.10, tileIdx);
-  const cx = col * ATLAS_TILE_SIZE + ATLAS_TILE_SIZE / 2;
-  const cy = row * ATLAS_TILE_SIZE + ATLAS_TILE_SIZE / 2;
+  const cx = tileX(col) + ATLAS_TILE_SIZE / 2;
+  const cy = tileY(row) + ATLAS_TILE_SIZE / 2;
   const rb = (baseColor >> 16) & 255;
   const gb = (baseColor >>  8) & 255;
   const bb =  baseColor        & 255;
@@ -95,8 +99,8 @@ function drawWoodBark(ctx: CanvasRenderingContext2D, tileIdx: number, baseColor:
   const col = tc(tileIdx);
   const row = tr(tileIdx);
   drawNoiseTile(ctx, col, row, baseColor, 0.10, tileIdx);
-  const x0  = col * ATLAS_TILE_SIZE;
-  const y0  = row * ATLAS_TILE_SIZE;
+  const x0  = tileX(col);
+  const y0  = tileY(row);
   const rb  = (baseColor >> 16) & 255;
   const gb  = (baseColor >>  8) & 255;
   const bb  =  baseColor        & 255;
@@ -105,6 +109,33 @@ function drawWoodBark(ctx: CanvasRenderingContext2D, tileIdx: number, baseColor:
   for (let i = 0; i < 5; i++) {
     ctx.fillRect(x0 + (rng() * ATLAS_TILE_SIZE) | 0, y0, 1, ATLAS_TILE_SIZE);
   }
+}
+
+/**
+ * Extrude the 1-px border of each tile's content area into the surrounding pad
+ * region. This prevents mipmap averaging from sampling black empty canvas space
+ * when a mip level straddles the boundary between a tile's content and its
+ * neighbouring slot's padding.
+ */
+function extrudeTile(ctx: CanvasRenderingContext2D, col: number, row: number): void {
+  const sx = tileX(col);
+  const sy = tileY(row);
+  const S  = ATLAS_TILE_SIZE;
+  const P  = ATLAS_TILE_PAD;
+
+  // Top edge → pad row(s) above
+  ctx.drawImage(ctx.canvas, sx, sy,     S, 1,  sx, sy - P, S, P);
+  // Bottom edge → pad row(s) below
+  ctx.drawImage(ctx.canvas, sx, sy+S-1, S, 1,  sx, sy + S, S, P);
+  // Left edge → pad column(s) to the left
+  ctx.drawImage(ctx.canvas, sx,     sy, 1, S,  sx - P, sy, P, S);
+  // Right edge → pad column(s) to the right
+  ctx.drawImage(ctx.canvas, sx+S-1, sy, 1, S,  sx + S, sy, P, S);
+  // Corners (fill from nearest edge pixel to avoid seams)
+  ctx.drawImage(ctx.canvas, sx,     sy,     1, 1,  sx - P, sy - P, P, P);
+  ctx.drawImage(ctx.canvas, sx+S-1, sy,     1, 1,  sx + S, sy - P, P, P);
+  ctx.drawImage(ctx.canvas, sx,     sy+S-1, 1, 1,  sx - P, sy + S, P, P);
+  ctx.drawImage(ctx.canvas, sx+S-1, sy+S-1, 1, 1,  sx + S, sy + S, P, P);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -116,8 +147,8 @@ function drawWoodBark(ctx: CanvasRenderingContext2D, tileIdx: number, baseColor:
  */
 export function buildAtlasTexture(): THREE.CanvasTexture {
   const canvas    = document.createElement("canvas");
-  canvas.width    = ATLAS_COLS * ATLAS_TILE_SIZE;   // 128
-  canvas.height   = ATLAS_ROWS * ATLAS_TILE_SIZE;   // 128
+  canvas.width    = ATLAS_COLS * ATLAS_TILE_PADDED;   // 144
+  canvas.height   = ATLAS_ROWS * ATLAS_TILE_PADDED;   // 144
   const ctx = canvas.getContext("2d")!;
 
   // Uniform noise tiles: [tileIdx, baseColor, variance]
@@ -158,6 +189,12 @@ export function buildAtlasTexture(): THREE.CanvasTexture {
   drawWoodBark(ctx, TILE_IDS.BirchBark,  0xD4C9A8);
   drawWoodEnd(ctx, TILE_IDS.SpruceEnd,   0x3E2723);
   drawWoodBark(ctx, TILE_IDS.SpruceBark, 0x3E2723);
+
+  // Extrude every non-Air tile so mipmap averaging never samples empty canvas.
+  const allTileIds = Object.values(TILE_IDS).filter(id => id !== TILE_IDS.Air);
+  for (const id of allTileIds) {
+    extrudeTile(ctx, tc(id), tr(id));
+  }
 
   const texture       = new THREE.CanvasTexture(canvas);
   texture.magFilter   = THREE.NearestFilter;           // pixelated up close

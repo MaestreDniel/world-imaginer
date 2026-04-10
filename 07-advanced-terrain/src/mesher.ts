@@ -1,5 +1,5 @@
 import { CHUNK_SIZE, chunkIndex, type ChunkData } from "./chunk";
-import { BLOCK_DEFS, Block, ATLAS_COLS, ATLAS_ROWS } from "./blocks";
+import { BLOCK_DEFS, Block, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE } from "./blocks";
 
 /**
  * Per-face quad emitter — replaces the greedy mesher.
@@ -87,8 +87,12 @@ export function buildChunkMesh(
 
           const tCol = tileIdx % ATLAS_COLS;
           const tRow = (tileIdx / ATLAS_COLS) | 0;
-          const u0 = tCol / ATLAS_COLS,       u1 = (tCol + 1) / ATLAS_COLS;
-          const v0 = tRow / ATLAS_ROWS,       v1 = (tRow + 1) / ATLAS_ROWS;
+          // Half-texel inset: keeps UVs off tile boundaries so NearestFilter
+          // never bleeds into an adjacent (possibly empty/black) tile slot.
+          const htU = 0.5 / (ATLAS_COLS * ATLAS_TILE_SIZE);
+          const htV = 0.5 / (ATLAS_ROWS * ATLAS_TILE_SIZE);
+          const u0 = tCol / ATLAS_COLS + htU,       u1 = (tCol + 1) / ATLAS_COLS - htU;
+          const v0 = tRow / ATLAS_ROWS + htV,       v1 = (tRow + 1) / ATLAS_ROWS - htV;
 
           // ── Vertex color (white unless grass top/side for biome tint) ────
           let packedColor = 0xFFFFFF;
@@ -142,8 +146,24 @@ export function buildChunkMesh(
             [corner[0] + du[0]+dv[0],  corner[1] + du[1]+dv[1],  corner[2] + du[2]+dv[2] ],
             [corner[0] + dv[0],        corner[1] + dv[1],        corner[2] + dv[2]       ],
           ];
-          // UV corners match quad corners: (u0,v0)→(u1,v0)→(u1,v1)→(u0,v1)
-          const uvc = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+          // UV corners are axis-dependent so that V always runs top-to-bottom
+          // on the block face (v0=tile top = world-top, v1=tile bottom = world-bottom).
+          //
+          // For Y-faces:  uAxis=Z, vAxis=X  — standard: (u0,v0)→(u1,v0)→(u1,v1)→(u0,v1)
+          // For Z-faces:  uAxis=X, vAxis=Y  — V is inverted (Y grows up, V grows down in atlas)
+          // For X-faces:  uAxis=Y, vAxis=Z  — U/V swapped and V inverted
+          let uvc: [number, number][];
+          if (axis === 1) {
+            uvc = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+          } else if (axis === 2) {
+            // Z-face: qc goes (Y-bottom,X-left)→(Y-bottom,X-right)→(Y-top,X-right)→(Y-top,X-left)
+            // Map world-top (Y+1) → v0 (tile top), world-bottom (Y) → v1 (tile bottom)
+            uvc = [[u0, v1], [u1, v1], [u1, v0], [u0, v0]];
+          } else {
+            // X-face: qc goes (Y-bottom,Z-front)→(Y-top,Z-front)→(Y-top,Z-back)→(Y-bottom,Z-back)
+            // U tracks Z (horizontal), V tracks inverted-Y (vertical)
+            uvc = [[u0, v1], [u0, v0], [u1, v0], [u1, v1]];
+          }
 
           for (let k = 0; k < 4; k++) {
             positions.push(qc[k][0], qc[k][1], qc[k][2]);

@@ -32,6 +32,7 @@ export interface WorkerResponse {
   positions: Float32Array;
   normals: Float32Array;
   colors: Float32Array;
+  uvs: Float32Array;
   indices: Uint32Array;
   empty: boolean;
   blockData: Uint8Array;
@@ -64,9 +65,10 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     const resp: WorkerResponse = {
       id, cx, cy, cz,
       positions: new Float32Array(0),
-      normals: new Float32Array(0),
-      colors: new Float32Array(0),
-      indices: new Uint32Array(0),
+      normals:   new Float32Array(0),
+      colors:    new Float32Array(0),
+      uvs:       new Float32Array(0),
+      indices:   new Uint32Array(0),
       empty: true,
       blockData: data,
       grassColors,
@@ -76,13 +78,14 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   }
 
   const positions = new Float32Array(mesh.positions);
-  const normals = new Float32Array(mesh.normals);
-  const colors = new Float32Array(mesh.colors);
-  const indices = new Uint32Array(mesh.indices);
+  const normals   = new Float32Array(mesh.normals);
+  const colors    = new Float32Array(mesh.colors);
+  const uvs       = new Float32Array(mesh.uvs);
+  const indices   = new Uint32Array(mesh.indices);
 
   const resp: WorkerResponse = {
     id, cx, cy, cz,
-    positions, normals, colors, indices,
+    positions, normals, colors, uvs, indices,
     empty: false,
     blockData: data,
     grassColors,
@@ -93,6 +96,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       positions.buffer,
       normals.buffer,
       colors.buffer,
+      uvs.buffer,
       indices.buffer,
       data.buffer,
       grassColors.buffer,

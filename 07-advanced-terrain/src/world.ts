@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CHUNK_SIZE, chunkIndex, type WorldConfig, DEFAULT_CONFIG } from "./chunk";
 import { BLOCK_DEFS } from "./blocks";
+import { buildAtlasTexture } from "./textureAtlas";
 import type { WorkerRequest, WorkerResponse } from "./worker";
 
 /**
@@ -35,6 +36,7 @@ export class World {
   readonly config: WorldConfig;
   private chunks = new Map<string, LoadedChunk>();
   private scene: THREE.Scene;
+  private atlasTexture: THREE.CanvasTexture;
   private material: THREE.MeshLambertMaterial;
   private workers: Worker[] = [];
   private workerBusy: boolean[] = [];
@@ -45,7 +47,8 @@ export class World {
   constructor(scene: THREE.Scene, config: Partial<WorldConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.scene = scene;
-    this.material = new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.atlasTexture = buildAtlasTexture();
+    this.material = new THREE.MeshLambertMaterial({ vertexColors: true, map: this.atlasTexture });
 
     // Spawn worker pool
     const count = Math.min(navigator.hardwareConcurrency || 4, 8);
@@ -78,6 +81,7 @@ export class World {
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(resp.positions, 3));
       geometry.setAttribute("normal", new THREE.Float32BufferAttribute(resp.normals, 3));
       geometry.setAttribute("color", new THREE.Float32BufferAttribute(resp.colors, 3));
+      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(resp.uvs, 2));
       geometry.setIndex(new THREE.Uint32BufferAttribute(resp.indices, 1));
 
       const mesh = new THREE.Mesh(geometry, this.material);
@@ -206,6 +210,7 @@ export class World {
     for (const w of this.workers) w.terminate();
     this.workers.length = 0;
     this.workerBusy.length = 0;
+    this.atlasTexture.dispose();
     this.material.dispose();
   }
 }

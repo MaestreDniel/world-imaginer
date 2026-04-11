@@ -20,6 +20,26 @@ export interface MeshData {
 
 type NeighborLookup = (x: number, y: number, z: number) => number;
 
+/**
+ * Brightness multiplier per occluder count.
+ * Index 0 = no occluders (full bright), index 3 = fully cornered (darkest).
+ */
+const AO_TABLE = [1.0, 0.80, 0.60, 0.45];
+
+/**
+ * Compute the AO level for one vertex of a face.
+ *
+ * `side1` and `side2` are the two edge-adjacent neighbors in the face plane.
+ * `corner` is the diagonal neighbor. Each is 1 if solid, 0 if transparent/air.
+ *
+ * When both edges are solid the corner is visually hidden, so we force
+ * occluderCount to 3 regardless of the actual corner value.
+ */
+function vertexAO(side1: number, side2: number, corner: number): number {
+  if (side1 && side2) return AO_TABLE[3];
+  return AO_TABLE[side1 + side2 + corner];
+}
+
 export function buildChunkMesh(
   data: ChunkData,
   getNeighbor: NeighborLookup,

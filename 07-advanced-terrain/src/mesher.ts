@@ -40,6 +40,28 @@ function vertexAO(side1: number, side2: number, corner: number): number {
   return AO_TABLE[side1 + side2 + corner];
 }
 
+/**
+ * Returns 1 if the block at (x, y, z) in local chunk coords is solid, 0 otherwise.
+ * Uses getNeighbor for out-of-bounds positions.
+ */
+function isSolidAt(
+  x: number, y: number, z: number,
+  data: ChunkData, getNeighbor: NeighborLookup,
+): number {
+  let blockId: number;
+  if (
+    x < 0 || x >= CHUNK_SIZE ||
+    y < 0 || y >= CHUNK_SIZE ||
+    z < 0 || z >= CHUNK_SIZE
+  ) {
+    blockId = getNeighbor(x, y, z);
+  } else {
+    blockId = data[chunkIndex(x, y, z)];
+  }
+  const def = BLOCK_DEFS[blockId];
+  return (def && !def.transparent) ? 1 : 0;
+}
+
 export function buildChunkMesh(
   data: ChunkData,
   getNeighbor: NeighborLookup,

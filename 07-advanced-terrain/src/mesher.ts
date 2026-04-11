@@ -171,9 +171,9 @@ export function buildChunkMesh(
           }
           const lightFactor = 0.2 + (lightLevel / 15) * 0.8;
 
-          const sr = r * shade * lightFactor;
-          const sg = g * shade * lightFactor;
-          const sb = b * shade * lightFactor;
+          const baseR = r * shade * lightFactor;
+          const baseG = g * shade * lightFactor;
+          const baseB = b * shade * lightFactor;
 
           // ── Quad geometry ────────────────────────────────────────────────
           const corner = [0, 0, 0];
@@ -183,6 +183,31 @@ export function buildChunkMesh(
 
           const du = [0, 0, 0]; du[uAxis] = 1;
           const dv = [0, 0, 0]; dv[vAxis] = 1;
+
+          // ── Per-vertex AO ───────────────────────────────────────────────
+          // For each of the 4 quad corners, sample 2 edge + 1 corner neighbor
+          // in the plane perpendicular to the face normal.
+          // du/dv offsets: corner 0 = (0,0), 1 = (+u,0), 2 = (+u,+v), 3 = (0,+v)
+          // Edge/corner neighbors are offset from the face's air-side position.
+          const ap = [pos[0] + normal[0], pos[1] + normal[1], pos[2] + normal[2]];
+
+          // Precompute the 4 edge neighbors (±u, ±v from air-side position)
+          const s_pu = isSolidAt(ap[0] + du[0], ap[1] + du[1], ap[2] + du[2], data, getNeighbor);
+          const s_nu = isSolidAt(ap[0] - du[0], ap[1] - du[1], ap[2] - du[2], data, getNeighbor);
+          const s_pv = isSolidAt(ap[0] + dv[0], ap[1] + dv[1], ap[2] + dv[2], data, getNeighbor);
+          const s_nv = isSolidAt(ap[0] - dv[0], ap[1] - dv[1], ap[2] - dv[2], data, getNeighbor);
+
+          // And the 4 corner neighbors (diagonals)
+          const c_pupv = isSolidAt(ap[0] + du[0] + dv[0], ap[1] + du[1] + dv[1], ap[2] + du[2] + dv[2], data, getNeighbor);
+          const c_nupv = isSolidAt(ap[0] - du[0] + dv[0], ap[1] - du[1] + dv[1], ap[2] - du[2] + dv[2], data, getNeighbor);
+          const c_punv = isSolidAt(ap[0] + du[0] - dv[0], ap[1] + du[1] - dv[1], ap[2] + du[2] - dv[2], data, getNeighbor);
+          const c_nunv = isSolidAt(ap[0] - du[0] - dv[0], ap[1] - du[1] - dv[1], ap[2] - du[2] - dv[2], data, getNeighbor);
+
+          // AO per corner: corner 0 = (-u,-v), 1 = (+u,-v), 2 = (+u,+v), 3 = (-u,+v)
+          const ao0 = vertexAO(s_nu, s_nv, c_nunv);
+          const ao1 = vertexAO(s_pu, s_nv, c_punv);
+          const ao2 = vertexAO(s_pu, s_pv, c_pupv);
+          const ao3 = vertexAO(s_nu, s_pv, c_nupv);
 
           const vi = positions.length / 3;
 
@@ -212,10 +237,11 @@ export function buildChunkMesh(
             uvc = [[u0, v1], [u0, v0], [u1, v0], [u1, v1]];
           }
 
+          const aoFactors = [ao0, ao1, ao2, ao3];
           for (let k = 0; k < 4; k++) {
             positions.push(qc[k][0], qc[k][1], qc[k][2]);
             normals.push(normal[0], normal[1], normal[2]);
-            colors.push(sr, sg, sb);
+            colors.push(baseR * aoFactors[k], baseG * aoFactors[k], baseB * aoFactors[k]);
             uvs.push(uvc[k][0], uvc[k][1]);
           }
 

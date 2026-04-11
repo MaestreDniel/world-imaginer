@@ -245,12 +245,22 @@ export function buildChunkMesh(
             uvs.push(uvc[k][0], uvc[k][1]);
           }
 
-          // Winding: positive-dir faces use 0-1-2, 0-2-3;
-          //          negative-dir faces reverse to face outward
+          // Quad diagonal flipping: compare AO on opposite corners.
+          // Split along the diagonal with lower AO sum to avoid bright-seam artifacts.
+          const flipDiag = ao0 + ao2 < ao1 + ao3;
+
           if (dir > 0) {
-            indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+            if (flipDiag) {
+              indices.push(vi, vi + 1, vi + 3, vi + 1, vi + 2, vi + 3);
+            } else {
+              indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+            }
           } else {
-            indices.push(vi, vi + 2, vi + 1, vi, vi + 3, vi + 2);
+            if (flipDiag) {
+              indices.push(vi, vi + 3, vi + 1, vi + 1, vi + 3, vi + 2);
+            } else {
+              indices.push(vi, vi + 2, vi + 1, vi, vi + 3, vi + 2);
+            }
           }
         }
       }

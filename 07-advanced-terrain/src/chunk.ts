@@ -58,6 +58,8 @@ export function generateChunk(
   const treeNoise = createNoise(seed + 3);
   const lavaNoise      = createNoise(seed + 4);
   const glowstoneNoise = createNoise(seed + 8);
+  const aquiferPresenceNoise = createNoise(seed + 13);
+  const aquiferLevelNoise    = createNoise(seed + 14);
   const getBiome = createBiomeSampler(seed, config.params.biomes);
 
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
@@ -244,6 +246,48 @@ export function generateChunk(
         }
 
         data[voxIdx] = block;
+      }
+    }
+  }
+
+  // ── Aquifer / lake pass ──────────────────────────────────────────
+  // A low-frequency 3D presence field marks regions that have a local
+  // water table; a 2D level field gives that region a smoothly-varying
+  // local water surface height. Any Air cell inside such a region at or
+  // below the local surface becomes Water — this produces both flooded
+  // cave aquifers underground and surface ponds that sit above the
+  // global ocean water level.
+  const { aquifers } = config.params;
+  if (aquifers.enabled) {
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      const wy = worldYOff + ly;
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const wz = worldZOff + lz;
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          const wx = worldXOff + lx;
+          const voxIdx = chunkIndex(lx, ly, lz);
+          if (data[voxIdx] !== Block.Air) continue;
+
+          const presence = aquiferPresenceNoise.fbm3D(
+            wx / aquifers.presenceScale,
+            wy / (aquifers.presenceScale * 2),
+            wz / aquifers.presenceScale,
+            2, 0.5, 2.0,
+          );
+          if (presence <= aquifers.presenceThreshold) continue;
+
+          const localSurface = waterLevel
+            + aquifers.levelOffset
+            + aquiferLevelNoise.fbm2D(
+                wx / aquifers.levelScale,
+                wz / aquifers.levelScale,
+                2, 0.5, 2.0,
+              ) * aquifers.levelAmplitude;
+
+          if (wy <= localSurface) {
+            data[voxIdx] = Block.Water;
+          }
+        }
       }
     }
   }

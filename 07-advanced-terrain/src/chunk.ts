@@ -222,11 +222,11 @@ export function generateChunk(
         // 3D caves — intersecting-noise tubes.
         // Two independent fbm3D fields, each thresholded as |n|<t, define 2D
         // iso-surfaces; their intersection is a 1D curve → winding tunnel.
-        // verticalStretch divides y by a larger number so the noise varies
-        // slowly in y, giving near-horizontal iso-surfaces and horizontal tubes.
+        // verticalStretch > 1 makes y vary faster than xz, so ∂n/∂y is large
+        // and iso-surfaces are near-horizontal slabs → horizontal tunnels.
         // Depth-biased threshold: tight near surface (few openings), wider deep.
         if (depth >= caves.minDepth) {
-          const yScaled = wy / (caves.scale * caves.verticalStretch);
+          const yScaled = (wy * caves.verticalStretch) / caves.scale;
           const n1 = caveNoise.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
           const n2 = caveNoiseB.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
           const t = Math.min(caves.thresholdMax, caves.thresholdBase + depth * caves.depthGain);
@@ -292,6 +292,22 @@ export function generateChunk(
           if (presence <= aquifers.presenceThreshold) continue;
 
           data[voxIdx] = Block.Water;
+        }
+      }
+    }
+  }
+
+  // Surface blocks directly under water become sub-surface (grass → dirt,
+  // etc). Fixes the eyesore of seeing grass through flooded cave mouths,
+  // aquifer-formed lakes, and river channels.
+  for (let ly = CHUNK_SIZE - 1; ly >= 1; ly--) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        if (data[chunkIndex(lx, ly, lz)] !== Block.Water) continue;
+        const belowIdx = chunkIndex(lx, ly - 1, lz);
+        const biomeDef = BIOME_DEFS[biomes[lz * CHUNK_SIZE + lx]];
+        if (data[belowIdx] === biomeDef.surfaceBlock) {
+          data[belowIdx] = biomeDef.subSurfaceBlock;
         }
       }
     }

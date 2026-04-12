@@ -108,7 +108,7 @@ export const DEFAULT_PARAMS: GenerationParams = {
   caves: {
     scale: 22,
     octaves: 3,
-    verticalStretch: 2.0,
+    verticalStretch: 2.5,
     thresholdBase: 0.06,
     thresholdMax: 0.16,
     depthGain: 0.004,

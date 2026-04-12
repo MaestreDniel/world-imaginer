@@ -64,6 +64,17 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
+    id: "aquifers", label: "Aquifers & Lakes", paramsKey: "aquifers", expanded: false,
+    toggle: { key: "enabled", label: "Enabled" },
+    sliders: [
+      { key: "presenceScale",     label: "Presence Scale",     min: 40,  max: 400, step: 5,    decimals: 0 },
+      { key: "presenceThreshold", label: "Presence Threshold", min: 0.1, max: 0.7, step: 0.01, decimals: 2 },
+      { key: "levelScale",        label: "Level Scale",        min: 20,  max: 200, step: 5,    decimals: 0 },
+      { key: "levelAmplitude",    label: "Level Amplitude",    min: 0,   max: 30,  step: 0.5,  decimals: 1 },
+      { key: "levelOffset",       label: "Level Offset",       min: -20, max: 30,  step: 0.5,  decimals: 1 },
+    ],
+  },
+  {
     id: "rivers", label: "Rivers", paramsKey: "rivers", expanded: false,
     sliders: [
       { key: "voronoiScale",  label: "Voronoi Scale",   min: 50,   max: 500, step: 10,   decimals: 0 },

@@ -118,9 +118,9 @@ export const DEFAULT_PARAMS: GenerationParams = {
     enabled: true,
     presenceScale: 160,
     presenceThreshold: 0.35,
-    levelScale: 80,
-    levelAmplitude: 8,
-    levelOffset: 2,
+    levelScale: 800,
+    levelAmplitude: 15,
+    levelOffset: 0,
   },
   rivers: {
     voronoiScale: 220,

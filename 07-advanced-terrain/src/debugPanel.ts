@@ -69,7 +69,7 @@ const SECTIONS: SectionDef[] = [
     sliders: [
       { key: "presenceScale",     label: "Presence Scale",     min: 40,  max: 400, step: 5,    decimals: 0 },
       { key: "presenceThreshold", label: "Presence Threshold", min: 0.1, max: 0.7, step: 0.01, decimals: 2 },
-      { key: "levelScale",        label: "Level Scale",        min: 20,  max: 200, step: 5,    decimals: 0 },
+      { key: "levelScale",        label: "Level Scale",        min: 100, max: 2000, step: 20,   decimals: 0 },
       { key: "levelAmplitude",    label: "Level Amplitude",    min: 0,   max: 30,  step: 0.5,  decimals: 1 },
       { key: "levelOffset",       label: "Level Offset",       min: -20, max: 30,  step: 0.5,  decimals: 1 },
     ],

@@ -231,7 +231,7 @@ export function generateChunk(
           const n2 = caveNoiseB.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
           const t = Math.min(caves.thresholdMax, caves.thresholdBase + depth * caves.depthGain);
           if (Math.abs(n1) < t && Math.abs(n2) < t) {
-            block = wy <= waterLevel ? Block.Water : Block.Air;
+            block = Block.Air;
           }
         }
 
@@ -259,14 +259,29 @@ export function generateChunk(
   // global ocean water level.
   const { aquifers } = config.params;
   if (aquifers.enabled) {
-    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-      const wy = worldYOff + ly;
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wz = worldZOff + lz;
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          const wx = worldXOff + lx;
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wz = worldZOff + lz;
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const wx = worldXOff + lx;
+        const colIdx = lz * CHUNK_SIZE + lx;
+        // Skip ocean columns — aquifers only form on land
+        if (heights[colIdx] <= waterLevel) continue;
+
+        // Column-constant local water surface. Computed once per column
+        // and floored to an integer so lakes have flat surfaces.
+        const rawLevel = waterLevel + aquifers.levelOffset
+          + aquiferLevelNoise.fbm2D(
+              wx / aquifers.levelScale,
+              wz / aquifers.levelScale,
+              2, 0.5, 2.0,
+            ) * aquifers.levelAmplitude;
+        const localSurface = Math.floor(rawLevel);
+
+        for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+          const wy = worldYOff + ly;
           const voxIdx = chunkIndex(lx, ly, lz);
           if (data[voxIdx] !== Block.Air) continue;
+          if (wy > localSurface) continue;
 
           const presence = aquiferPresenceNoise.fbm3D(
             wx / aquifers.presenceScale,
@@ -276,17 +291,7 @@ export function generateChunk(
           );
           if (presence <= aquifers.presenceThreshold) continue;
 
-          const localSurface = waterLevel
-            + aquifers.levelOffset
-            + aquiferLevelNoise.fbm2D(
-                wx / aquifers.levelScale,
-                wz / aquifers.levelScale,
-                2, 0.5, 2.0,
-              ) * aquifers.levelAmplitude;
-
-          if (wy <= localSurface) {
-            data[voxIdx] = Block.Water;
-          }
+          data[voxIdx] = Block.Water;
         }
       }
     }

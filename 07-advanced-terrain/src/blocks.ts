@@ -33,6 +33,7 @@ export const Block = {
   Glass:       24,
   Lava:        25,
   Glowstone:   26,
+  Bedrock:     27,
 } as const;
 
 // ── Atlas layout ──────────────────────────────────────────────────────────────
@@ -202,5 +203,9 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
   [Block.Glowstone]: {
     name: "Glowstone", color: 0xFFDD44, solid: true, transparent: false, lightEmit: 15,
     tiles: { top: TILE_IDS.Glowstone, side: TILE_IDS.Glowstone, bottom: TILE_IDS.Glowstone },
+  },
+  [Block.Bedrock]: {
+    name: "Bedrock", color: 0x2A2A2A, solid: true, transparent: false, lightEmit: 0,
+    tiles: { top: TILE_IDS.Cobblestone, side: TILE_IDS.Cobblestone, bottom: TILE_IDS.Cobblestone },
   },
 };

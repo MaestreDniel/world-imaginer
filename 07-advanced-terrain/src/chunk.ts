@@ -60,6 +60,7 @@ export function generateChunk(
   const glowstoneNoise = createNoise(seed + 8);
   const aquiferPresenceNoise = createNoise(seed + 13);
   const aquiferLevelNoise    = createNoise(seed + 14);
+  const bedrockNoise         = createNoise(seed + 15);
   const getBiome = createBiomeSampler(seed, config.params.biomes);
 
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
@@ -353,6 +354,33 @@ export function generateChunk(
         const wz = worldZOff + lz;
         const n = glowstoneNoise.perlin2D(wx / 15, wz / 15);
         if (n > 0.65) data[chunkIndex(lx, ly, lz)] = Block.Glowstone;
+      }
+    }
+  }
+
+  // ── Bedrock floor ────────────────────────────────────────────────
+  // Absolute impassable bottom: wy = BEDROCK_BOTTOM is 100% bedrock,
+  // wy up to BEDROCK_BOTTOM+2 is stochastically bedrock (jagged top).
+  // Runs last so it overrides caves, aquifers, lava, and glowstone.
+  const BEDROCK_BOTTOM = -32;
+  const BEDROCK_FUZZY_HEIGHT = 2;
+  if (worldYOff <= BEDROCK_BOTTOM + BEDROCK_FUZZY_HEIGHT && worldYOff + CHUNK_SIZE > BEDROCK_BOTTOM) {
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      const wy = worldYOff + ly;
+      if (wy < BEDROCK_BOTTOM || wy > BEDROCK_BOTTOM + BEDROCK_FUZZY_HEIGHT) continue;
+      const rowAbove = wy - BEDROCK_BOTTOM;
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          if (rowAbove === 0) {
+            data[chunkIndex(lx, ly, lz)] = Block.Bedrock;
+          } else {
+            const wx = worldXOff + lx;
+            const wz = worldZOff + lz;
+            const n = bedrockNoise.perlin2D((wx + rowAbove * 13) / 3, (wz + rowAbove * 17) / 3);
+            const threshold = -0.66 + rowAbove * 0.5;
+            if (n > threshold) data[chunkIndex(lx, ly, lz)] = Block.Bedrock;
+          }
+        }
       }
     }
   }

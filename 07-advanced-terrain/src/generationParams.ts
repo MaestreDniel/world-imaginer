@@ -26,6 +26,8 @@ export interface CaveParams {
   depthGain: number;
   /** Minimum depth below the surface before caves can carve. Protects top blocks. */
   minDepth: number;
+  /** Depth below which a verticality check filters horizontal near-surface tunnels. */
+  entryDepth: number;
 }
 
 export interface AquiferParams {
@@ -112,7 +114,8 @@ export const DEFAULT_PARAMS: GenerationParams = {
     thresholdBase: 0.06,
     thresholdMax: 0.16,
     depthGain: 0.004,
-    minDepth: 2,
+    minDepth: 0,
+    entryDepth: 4,
   },
   aquifers: {
     enabled: true,

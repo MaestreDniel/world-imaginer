@@ -225,13 +225,24 @@ export function generateChunk(
         // verticalStretch > 1 makes y vary faster than xz, so ∂n/∂y is large
         // and iso-surfaces are near-horizontal slabs → horizontal tunnels.
         // Depth-biased threshold: tight near surface (few openings), wider deep.
+        // Near the surface (depth < entryDepth) we also require the voxel one
+        // step up to be in the tunnel: this means the tunnel extends vertically
+        // through the surface, so entries become clean shafts instead of long
+        // horizontal gashes parallel to the surface.
         if (depth >= caves.minDepth) {
           const yScaled = (wy * caves.verticalStretch) / caves.scale;
           const n1 = caveNoise.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
           const n2 = caveNoiseB.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
           const t = Math.min(caves.thresholdMax, caves.thresholdBase + depth * caves.depthGain);
           if (Math.abs(n1) < t && Math.abs(n2) < t) {
-            block = Block.Air;
+            let carve = true;
+            if (depth < caves.entryDepth) {
+              const yScaledUp = ((wy + 1) * caves.verticalStretch) / caves.scale;
+              const n1Up = caveNoise.fbm3D(wx / caves.scale, yScaledUp, wz / caves.scale, caves.octaves, 0.5, 2.0);
+              const n2Up = caveNoiseB.fbm3D(wx / caves.scale, yScaledUp, wz / caves.scale, caves.octaves, 0.5, 2.0);
+              if (Math.abs(n1Up) >= t || Math.abs(n2Up) >= t) carve = false;
+            }
+            if (carve) block = Block.Air;
           }
         }
 

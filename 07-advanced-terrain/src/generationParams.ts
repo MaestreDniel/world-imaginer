@@ -12,12 +12,20 @@ export interface TerrainParams {
 }
 
 export interface CaveParams {
+  /** Noise scale for tunnel sizing (larger = wider features). */
   scale: number;
+  /** Number of fBm octaves. */
   octaves: number;
-  threshold: number;
-  surfaceErosionScale: number;
-  surfaceErosionThreshold: number;
-  surfaceErosionDepth: number;
+  /** Y-axis stretch factor: >1 elongates noise vertically → tunnels prefer horizontal. */
+  verticalStretch: number;
+  /** Base threshold |n|<t near the surface. Smaller = rarer surface openings. */
+  thresholdBase: number;
+  /** Maximum threshold at depth. Larger = wider deep networks. */
+  thresholdMax: number;
+  /** Per-block growth of threshold with depth. */
+  depthGain: number;
+  /** Minimum depth below the surface before caves can carve. Protects top blocks. */
+  minDepth: number;
 }
 
 export interface AquiferParams {
@@ -98,12 +106,13 @@ export const DEFAULT_PARAMS: GenerationParams = {
     gravity: 10,
   },
   caves: {
-    scale: 30,
+    scale: 22,
     octaves: 3,
-    threshold: 0.45,
-    surfaceErosionScale: 16,
-    surfaceErosionThreshold: 0.38,
-    surfaceErosionDepth: 8,
+    verticalStretch: 2.0,
+    thresholdBase: 0.06,
+    thresholdMax: 0.16,
+    depthGain: 0.004,
+    minDepth: 2,
   },
   aquifers: {
     enabled: true,

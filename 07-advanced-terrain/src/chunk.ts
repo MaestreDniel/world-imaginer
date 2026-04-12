@@ -53,6 +53,7 @@ export function generateChunk(
   const { seed, waterLevel, baseHeight } = config;
   const noise = createNoise(seed);
   const caveNoise = createNoise(seed + 1);
+  const caveNoiseB = createNoise(seed + 9);
   const oreNoise = createNoise(seed + 2);
   const treeNoise = createNoise(seed + 3);
   const lavaNoise      = createNoise(seed + 4);
@@ -216,12 +217,18 @@ export function generateChunk(
           if (gravelVal > 0.3) block = Block.Gravel;
         }
 
-        // 3D caves — larger scale = wider tunnels, higher threshold = fewer caves
-        // Threshold eases near surface so some caves open to the sky
-        if (depth > 1) {
-          const caveVal = caveNoise.fbm3D(wx / caves.scale, wy / caves.scale, wz / caves.scale, caves.octaves, 0.5, 2.0);
-          const threshold = depth < 8 ? caves.threshold - 0.03 + (depth - 2) * 0.005 : caves.threshold;
-          if (caveVal > threshold) {
+        // 3D caves — intersecting-noise tubes.
+        // Two independent fbm3D fields, each thresholded as |n|<t, define 2D
+        // iso-surfaces; their intersection is a 1D curve → winding tunnel.
+        // verticalStretch divides y by a larger number so the noise varies
+        // slowly in y, giving near-horizontal iso-surfaces and horizontal tubes.
+        // Depth-biased threshold: tight near surface (few openings), wider deep.
+        if (depth >= caves.minDepth) {
+          const yScaled = wy / (caves.scale * caves.verticalStretch);
+          const n1 = caveNoise.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
+          const n2 = caveNoiseB.fbm3D(wx / caves.scale, yScaled, wz / caves.scale, caves.octaves, 0.5, 2.0);
+          const t = Math.min(caves.thresholdMax, caves.thresholdBase + depth * caves.depthGain);
+          if (Math.abs(n1) < t && Math.abs(n2) < t) {
             block = wy <= waterLevel ? Block.Water : Block.Air;
           }
         }
@@ -237,34 +244,6 @@ export function generateChunk(
         }
 
         data[voxIdx] = block;
-      }
-    }
-  }
-
-  // Surface cave erosion — carve irregular openings near the surface
-  // using a separate noise field so caves sometimes breach the surface
-  const erosionNoise = createNoise(seed + 5);
-  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const wx = worldXOff + lx;
-      const wz = worldZOff + lz;
-      const surfaceH = heights[lz * CHUNK_SIZE + lx];
-      const surfaceLocal = Math.floor(surfaceH) - worldYOff;
-
-      for (let dy = 0; dy <= caves.surfaceErosionDepth; dy++) {
-        const ly = surfaceLocal - dy;
-        if (ly < 0 || ly >= CHUNK_SIZE) continue;
-        const wy = worldYOff + ly;
-        if (wy <= waterLevel) continue;
-
-        const erosion = erosionNoise.fbm3D(
-          wx / caves.surfaceErosionScale, wy / caves.surfaceErosionScale, wz / caves.surfaceErosionScale,
-          3, 0.5, 2.0,
-        );
-        const threshold = caves.surfaceErosionThreshold + dy * 0.02;
-        if (erosion > threshold) {
-          data[chunkIndex(lx, ly, lz)] = Block.Air;
-        }
       }
     }
   }

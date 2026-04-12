@@ -54,12 +54,13 @@ const SECTIONS: SectionDef[] = [
   {
     id: "caves", label: "Caves", paramsKey: "caves", expanded: false,
     sliders: [
-      { key: "scale",                   label: "Scale",                    min: 5,   max: 100, step: 1,    decimals: 0 },
-      { key: "octaves",                 label: "Octaves",                  min: 1,   max: 6,   step: 1,    decimals: 0 },
-      { key: "threshold",               label: "Threshold",                min: 0.2, max: 0.7, step: 0.01, decimals: 2 },
-      { key: "surfaceErosionScale",     label: "Surface Erosion Scale",    min: 5,   max: 50,  step: 1,    decimals: 0 },
-      { key: "surfaceErosionThreshold", label: "Surface Erosion Threshold", min: 0.2, max: 0.6, step: 0.01, decimals: 2 },
-      { key: "surfaceErosionDepth",     label: "Surface Erosion Depth",    min: 2,   max: 16,  step: 1,    decimals: 0 },
+      { key: "scale",           label: "Scale",            min: 5,    max: 60,   step: 1,    decimals: 0 },
+      { key: "octaves",         label: "Octaves",          min: 1,    max: 6,    step: 1,    decimals: 0 },
+      { key: "verticalStretch", label: "Vertical Stretch", min: 0.5,  max: 4,    step: 0.1,  decimals: 1 },
+      { key: "thresholdBase",   label: "Threshold Base",   min: 0,    max: 0.2,  step: 0.005, decimals: 3 },
+      { key: "thresholdMax",    label: "Threshold Max",    min: 0.05, max: 0.35, step: 0.005, decimals: 3 },
+      { key: "depthGain",       label: "Depth Gain",       min: 0,    max: 0.02, step: 0.0005, decimals: 4 },
+      { key: "minDepth",        label: "Min Depth",        min: 1,    max: 8,    step: 1,    decimals: 0 },
     ],
   },
   {
@@ -126,7 +127,15 @@ const BUILT_IN_PRESETS: Preset[] = [
     name: "Cave Heavy", builtIn: true,
     params: {
       ...cloneParams(DEFAULT_PARAMS),
-      caves: { scale: 25, octaves: 4, threshold: 0.35, surfaceErosionScale: 12, surfaceErosionThreshold: 0.30, surfaceErosionDepth: 14 },
+      caves: {
+        scale: 22,
+        octaves: 4,
+        verticalStretch: 2.0,
+        thresholdBase: 0.09,
+        thresholdMax: 0.22,
+        depthGain: 0.006,
+        minDepth: 2,
+      },
     },
   },
 ];

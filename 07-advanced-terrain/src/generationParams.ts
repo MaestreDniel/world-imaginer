@@ -20,6 +20,21 @@ export interface CaveParams {
   surfaceErosionDepth: number;
 }
 
+export interface AquiferParams {
+  /** Master toggle for aquifer/lake generation. */
+  enabled: boolean;
+  /** Scale of the 3D presence field. Larger = sparser lake regions. */
+  presenceScale: number;
+  /** Threshold on presence field; only cells above this have a local water table. Higher = rarer. */
+  presenceThreshold: number;
+  /** Scale of the 2D local water-surface height field. */
+  levelScale: number;
+  /** Vertical wobble amplitude of the local water surface. */
+  levelAmplitude: number;
+  /** Baseline Y offset of the local water surface (relative to global waterLevel). */
+  levelOffset: number;
+}
+
 export interface RiverParams {
   voronoiScale: number;
   edgeThreshold: number;
@@ -56,6 +71,7 @@ export interface GenerationParams {
   terrain: TerrainParams;
   erosion: ErosionParams;
   caves: CaveParams;
+  aquifers: AquiferParams;
   rivers: RiverParams;
   biomes: BiomeParams;
   ores: OreParams;
@@ -88,6 +104,14 @@ export const DEFAULT_PARAMS: GenerationParams = {
     surfaceErosionScale: 16,
     surfaceErosionThreshold: 0.38,
     surfaceErosionDepth: 8,
+  },
+  aquifers: {
+    enabled: true,
+    presenceScale: 160,
+    presenceThreshold: 0.35,
+    levelScale: 80,
+    levelAmplitude: 8,
+    levelOffset: 2,
   },
   rivers: {
     voronoiScale: 220,

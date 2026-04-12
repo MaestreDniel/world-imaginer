@@ -584,12 +584,13 @@ export class DebugPanel {
           }
           const raw = data.params ?? {};
           const params: GenerationParams = {
-            terrain: { ...DEFAULT_PARAMS.terrain, ...(raw.terrain ?? {}) },
-            erosion: { ...DEFAULT_PARAMS.erosion, ...(raw.erosion ?? {}) },
-            caves:   { ...DEFAULT_PARAMS.caves,   ...(raw.caves   ?? {}) },
-            rivers:  { ...DEFAULT_PARAMS.rivers,  ...(raw.rivers  ?? {}) },
-            biomes:  { ...DEFAULT_PARAMS.biomes,  ...(raw.biomes  ?? {}) },
-            ores:    { ...DEFAULT_PARAMS.ores,     ...(raw.ores    ?? {}) },
+            terrain:  { ...DEFAULT_PARAMS.terrain,  ...(raw.terrain  ?? {}) },
+            erosion:  { ...DEFAULT_PARAMS.erosion,  ...(raw.erosion  ?? {}) },
+            caves:    { ...DEFAULT_PARAMS.caves,    ...(raw.caves    ?? {}) },
+            aquifers: { ...DEFAULT_PARAMS.aquifers, ...(raw.aquifers ?? {}) },
+            rivers:   { ...DEFAULT_PARAMS.rivers,   ...(raw.rivers   ?? {}) },
+            biomes:   { ...DEFAULT_PARAMS.biomes,   ...(raw.biomes   ?? {}) },
+            ores:     { ...DEFAULT_PARAMS.ores,     ...(raw.ores     ?? {}) },
           };
           this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);

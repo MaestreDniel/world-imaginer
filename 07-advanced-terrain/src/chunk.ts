@@ -386,6 +386,50 @@ export function generateChunk(
   }
 
   // Structure placement pass — vegetation
+  //
+  // Two-stage tree placement:
+  //   Stage 1 builds a treeMask from pure noise/height data (no data[] reads),
+  //   applying a ≥1-block spacing rule so adjacent trunks get rejected. Because
+  //   stage 1 is data-free, this chunk and the chunk above compute identical
+  //   masks, keeping cross-chunk canopy painting consistent.
+  //   Stage 2 places trees where the mask allows and cacti as before. Each chunk
+  //   also paints leaves for trees whose surface sits in the chunk directly
+  //   below, so canopies that cross a chunk Y boundary still render.
+  const MAX_TREE_REACH = 10;
+  const treeMask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
+  // ── Stage 1: decide tree-bearing columns with spacing ────────────
+  for (let lz = 3; lz < CHUNK_SIZE - 3; lz++) {
+    for (let lx = 3; lx < CHUNK_SIZE - 3; lx++) {
+      const colIdx = lz * CHUNK_SIZE + lx;
+      const biomeDef = BIOME_DEFS[biomes[colIdx]];
+      if (biomeDef.treeWood === null || biomeDef.treeLeaves === null) continue;
+      if (heights[colIdx] <= waterLevel) continue;
+
+      const wx = worldXOff + lx;
+      const wz = worldZOff + lz;
+      const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
+      const normalised = (treeVal + 1) * 0.5;
+      if (normalised >= biomeDef.treeDensity) continue;
+
+      // Reject if any already-decided neighbour tree sits in the 3×3 footprint.
+      let conflict = false;
+      for (let dz = -1; dz <= 1 && !conflict; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dz === 0) continue;
+          if (treeMask[(lz + dz) * CHUNK_SIZE + (lx + dx)]) {
+            conflict = true;
+            break;
+          }
+        }
+      }
+      if (conflict) continue;
+
+      treeMask[colIdx] = 1;
+    }
+  }
+
+  // ── Stage 2: paint trees and cacti ───────────────────────────────
   for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
     for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
       const wx = worldXOff + lx;
@@ -395,35 +439,40 @@ export function generateChunk(
       const biomeDef = BIOME_DEFS[biome];
       const surfaceH = heights[colIdx];
 
-      const surfaceLocal = Math.floor(surfaceH) - worldYOff;
-      if (surfaceLocal < 4 || surfaceLocal >= CHUNK_SIZE - 1) continue;
-
-      const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
-      if (surfBlock !== biomeDef.surfaceBlock) continue;
-
       if (surfaceH <= waterLevel) continue;
 
-      const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
-      const normalised = (treeVal + 1) * 0.5;
+      const surfaceLocal = Math.floor(surfaceH) - worldYOff;
+      if (surfaceLocal >= CHUNK_SIZE) continue;          // tree entirely above us
+      if (surfaceLocal + MAX_TREE_REACH < 0) continue;   // tree ends below us
 
-      if (biomeDef.cactus && normalised < 0.04) {
-        placeCactus(data, lx, surfaceLocal, lz);
+      // Surface-block check only runs when the surface cell is in this chunk.
+      // Cross-chunk leaf painting trusts deterministic noise.
+      if (surfaceLocal >= 0) {
+        if (surfaceLocal < 4 || surfaceLocal >= CHUNK_SIZE - 1) continue;
+        const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
+        if (surfBlock !== biomeDef.surfaceBlock) continue;
+      }
+
+      // Cactus (desert) — no tree biomes overlap, so no mask needed.
+      if (biomeDef.cactus) {
+        const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
+        const normalised = (treeVal + 1) * 0.5;
+        if (normalised < 0.04 && surfaceLocal >= 0) {
+          placeCactus(data, lx, surfaceLocal, lz);
+        }
         continue;
       }
 
-      if (biomeDef.treeWood !== null && biomeDef.treeLeaves !== null && normalised < biomeDef.treeDensity) {
-        if (lx < 3 || lx >= CHUNK_SIZE - 3 || lz < 3 || lz >= CHUNK_SIZE - 3) continue;
+      if (!treeMask[colIdx]) continue;
 
-        const wood = biomeDef.treeWood;
-        const leaves = biomeDef.treeLeaves;
-
-        if (wood === Block.SpruceWood) {
-          placeSpruceTree(data, lx, surfaceLocal, lz, wood, leaves);
-        } else if (wood === Block.BirchWood) {
-          placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves);
-        } else {
-          placeOakTree(data, lx, surfaceLocal, lz, wood, leaves);
-        }
+      const wood = biomeDef.treeWood!;
+      const leaves = biomeDef.treeLeaves!;
+      if (wood === Block.SpruceWood) {
+        placeSpruceTree(data, lx, surfaceLocal, lz, wood, leaves);
+      } else if (wood === Block.BirchWood) {
+        placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves);
+      } else {
+        placeOakTree(data, lx, surfaceLocal, lz, wood, leaves);
       }
     }
   }

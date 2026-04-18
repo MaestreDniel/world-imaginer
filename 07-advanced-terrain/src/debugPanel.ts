@@ -102,6 +102,14 @@ const SECTIONS: SectionDef[] = [
       { key: "coalThreshold",  label: "Coal Threshold",  min: 0.3, max: 0.7, step: 0.01, decimals: 2 },
     ],
   },
+  {
+    id: "vegetation", label: "Vegetation", paramsKey: "vegetation", expanded: false,
+    toggle: { key: "enabled", label: "Enabled" },
+    sliders: [
+      { key: "globalDensity", label: "Decoration Density", min: 0, max: 3, step: 0.05, decimals: 2 },
+      { key: "treeDensity",   label: "Tree Density Mult.", min: 0, max: 3, step: 0.05, decimals: 2 },
+    ],
+  },
 ];
 
 // ── Preset system ──────────────────────────────────────────────────

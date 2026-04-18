@@ -34,6 +34,13 @@ export const Block = {
   Lava:        25,
   Glowstone:   26,
   Bedrock:     27,
+  Bush:         28,
+  DeadBush:     29,
+  Fern:         30,
+  TallGrass:    31,
+  FlowerRed:    32,
+  FlowerYellow: 33,
+  FlowerBlue:   34,
 } as const;
 
 // ── Atlas layout ──────────────────────────────────────────────────────────────
@@ -82,9 +89,18 @@ export const TILE_IDS = {
   Glass:        28,
   Lava:         29,
   Glowstone:    30,
+  Bush:         31,
+  DeadBush:     32,
+  Fern:         33,
+  TallGrass:    34,
+  FlowerRed:    35,
+  FlowerYellow: 36,
+  FlowerBlue:   37,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
+
+export type RenderShape = "cube" | "cross";
 
 export interface BlockDef {
   name: string;
@@ -93,6 +109,8 @@ export interface BlockDef {
   transparent: boolean;
   lightEmit: number;  // 0 = non-emissive; 1–15 = emits that light level
   tiles: { top: number; side: number; bottom: number };
+  /** Geometry mode. "cube" emits 6 cube faces (default); "cross" emits two crossed quads. */
+  renderShape?: RenderShape;
 }
 
 export const BLOCK_DEFS: Record<number, BlockDef> = {
@@ -207,5 +225,40 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
   [Block.Bedrock]: {
     name: "Bedrock", color: 0x2A2A2A, solid: true, transparent: false, lightEmit: 0,
     tiles: { top: TILE_IDS.Cobblestone, side: TILE_IDS.Cobblestone, bottom: TILE_IDS.Cobblestone },
+  },
+  [Block.Bush]: {
+    name: "Bush", color: 0x4A7C3A, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.Bush, side: TILE_IDS.Bush, bottom: TILE_IDS.Bush },
+  },
+  [Block.DeadBush]: {
+    name: "Dead Bush", color: 0x8C6A3A, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.DeadBush, side: TILE_IDS.DeadBush, bottom: TILE_IDS.DeadBush },
+  },
+  [Block.Fern]: {
+    name: "Fern", color: 0x356C2E, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.Fern, side: TILE_IDS.Fern, bottom: TILE_IDS.Fern },
+  },
+  [Block.TallGrass]: {
+    name: "Tall Grass", color: 0x69B040, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.TallGrass, side: TILE_IDS.TallGrass, bottom: TILE_IDS.TallGrass },
+  },
+  [Block.FlowerRed]: {
+    name: "Red Flower", color: 0xC04040, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.FlowerRed, side: TILE_IDS.FlowerRed, bottom: TILE_IDS.FlowerRed },
+  },
+  [Block.FlowerYellow]: {
+    name: "Yellow Flower", color: 0xE8C440, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.FlowerYellow, side: TILE_IDS.FlowerYellow, bottom: TILE_IDS.FlowerYellow },
+  },
+  [Block.FlowerBlue]: {
+    name: "Blue Flower", color: 0x5C7CC8, solid: false, transparent: true, lightEmit: 0,
+    renderShape: "cross",
+    tiles: { top: TILE_IDS.FlowerBlue, side: TILE_IDS.FlowerBlue, bottom: TILE_IDS.FlowerBlue },
   },
 };

@@ -410,7 +410,7 @@ export function generateChunk(
       const wz = worldZOff + lz;
       const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
       const normalised = (treeVal + 1) * 0.5;
-      if (normalised >= biomeDef.treeDensity) continue;
+      if (normalised >= biomeDef.treeDensity * config.params.vegetation.treeDensity) continue;
 
       // Reject if any already-decided neighbour tree sits in the 3×3 footprint.
       let conflict = false;
@@ -457,7 +457,7 @@ export function generateChunk(
       if (biomeDef.cactus) {
         const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
         const normalised = (treeVal + 1) * 0.5;
-        if (normalised < 0.04 && surfaceLocal >= 0) {
+        if (normalised < 0.04 * config.params.vegetation.treeDensity && surfaceLocal >= 0) {
           placeCactus(data, lx, surfaceLocal, lz);
         }
         continue;
@@ -473,6 +473,52 @@ export function generateChunk(
         placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves);
       } else {
         placeOakTree(data, lx, surfaceLocal, lz, wood, leaves);
+      }
+    }
+  }
+
+  // ── Surface decorations (vegetation) ─────────────────────────────────────
+  // Non-solid cross-sprite blocks: bushes, dead bushes, ferns, tall grass,
+  // and flowers. Placement is deterministic per (wx, wz) and respects the
+  // tree mask so plants never appear under tree trunks.
+  if (config.params.vegetation.enabled) {
+    const decoNoise = createNoise(seed + 16);
+    const globalDensity = config.params.vegetation.globalDensity;
+
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+        const colIdx = lz * CHUNK_SIZE + lx;
+        const biomeDef = BIOME_DEFS[biomes[colIdx]];
+        if (biomeDef.decorations.length === 0) continue;
+        if (heights[colIdx] <= waterLevel) continue;
+        if (treeMask[colIdx]) continue;
+
+        const surfaceLocal = Math.floor(heights[colIdx]) - worldYOff;
+        if (surfaceLocal < 0 || surfaceLocal >= CHUNK_SIZE - 1) continue;
+        const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
+        if (surfBlock !== biomeDef.surfaceBlock) continue;
+        const aboveIdx = chunkIndex(lx, surfaceLocal + 1, lz);
+        if (data[aboveIdx] !== Block.Air) continue;
+
+        const wx = worldXOff + lx;
+        const wz = worldZOff + lz;
+        const decoVal = (decoNoise.perlin2D(wx / 1.7, wz / 1.7) + 1) * 0.5;
+        const threshold = biomeDef.decorationDensity * globalDensity;
+        if (decoVal >= threshold) continue;
+
+        // Deterministic weighted pick by hashing world coords.
+        let totalWeight = 0;
+        for (const c of biomeDef.decorations) totalWeight += c.weight;
+        const hash = ((wx * 374761393) ^ (wz * 668265263)) >>> 0;
+        const r = ((hash % 100000) / 100000) * totalWeight;
+        let acc = 0;
+        let chosen: number = biomeDef.decorations[0].block;
+        for (const c of biomeDef.decorations) {
+          acc += c.weight;
+          if (r < acc) { chosen = c.block; break; }
+        }
+
+        data[aboveIdx] = chosen;
       }
     }
   }

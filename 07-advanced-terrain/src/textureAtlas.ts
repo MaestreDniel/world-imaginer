@@ -112,6 +112,136 @@ function drawWoodBark(ctx: CanvasRenderingContext2D, tileIdx: number, baseColor:
 }
 
 /**
+ * Clear a tile slot to transparent (alpha = 0) and run a painter that
+ * draws opaque pixels for an alpha-cut sprite. Used by all cross-shape
+ * vegetation sprites — never for cube tiles, whose pixels must remain α=255.
+ */
+function drawSpriteTile(
+  ctx: CanvasRenderingContext2D,
+  col: number, row: number,
+  draw: (ctx: CanvasRenderingContext2D, x0: number, y0: number, rng: () => number) => void,
+  rngSeed: number,
+): void {
+  const x0 = tileX(col);
+  const y0 = tileY(row);
+  ctx.clearRect(x0, y0, ATLAS_TILE_SIZE, ATLAS_TILE_SIZE);
+  const rng = makeLcg(rngSeed);
+  draw(ctx, x0, y0, rng);
+}
+
+/** Paint a single opaque pixel at (px, py) within the tile content area. */
+function px(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 1, 1);
+}
+
+function drawBush(ctx: CanvasRenderingContext2D, x0: number, y0: number, rng: () => number): void {
+  const cx = 8, cy = 11, r = 4.5;
+  const palette = ["#355E29", "#4A7C3A", "#6BA34D"];
+  for (let dy = -5; dy <= 5; dy++) {
+    for (let dx = -5; dx <= 5; dx++) {
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > r) continue;
+      // Slightly noisy edge: skip ~25% of border pixels
+      if (d > r - 0.8 && rng() < 0.25) continue;
+      const c = palette[(rng() * palette.length) | 0];
+      px(ctx, x0 + cx + dx, y0 + cy + dy, c);
+    }
+  }
+  // A few darker shadow pixels in the lower half
+  for (let i = 0; i < 6; i++) {
+    px(ctx, x0 + 5 + ((rng() * 7) | 0), y0 + 12 + ((rng() * 3) | 0), "#23401C");
+  }
+}
+
+function drawDeadBush(ctx: CanvasRenderingContext2D, x0: number, y0: number, rng: () => number): void {
+  const palette = ["#6F4A1F", "#8C6A3A", "#5A3A18"];
+  // 6 thin twigs from the bottom centre
+  for (let i = 0; i < 6; i++) {
+    const startX = 6 + ((rng() * 5) | 0);
+    const startY = 14;
+    const endX = 4 + ((rng() * 9) | 0);
+    const endY = 4 + ((rng() * 6) | 0);
+    const c = palette[(rng() * palette.length) | 0];
+    // Draw a 1-px line from start to end
+    const steps = Math.max(Math.abs(endX - startX), Math.abs(endY - startY));
+    for (let s = 0; s <= steps; s++) {
+      const t = steps === 0 ? 0 : s / steps;
+      const xx = Math.round(startX + (endX - startX) * t);
+      const yy = Math.round(startY + (endY - startY) * t);
+      px(ctx, x0 + xx, y0 + yy, c);
+    }
+  }
+}
+
+function drawFern(ctx: CanvasRenderingContext2D, x0: number, y0: number, rng: () => number): void {
+  const stemX = 8;
+  const stem = "#356C2E";
+  const frond = "#4A8C3A";
+  // Vertical stem from y=2 to y=15
+  for (let y = 2; y <= 15; y++) px(ctx, x0 + stemX, y0 + y, stem);
+  // Side fronds at alternating heights
+  for (let y = 4; y <= 14; y += 2) {
+    const len = 1 + ((rng() * 3) | 0);
+    const sideRight = (y & 1) === 0;
+    for (let i = 1; i <= len; i++) {
+      const xx = stemX + (sideRight ? i : -i);
+      // Fronds taper diagonally upward away from the stem
+      const yy = y - ((i / 2) | 0);
+      if (xx >= 0 && xx < 16 && yy >= 0 && yy < 16) {
+        px(ctx, x0 + xx, y0 + yy, frond);
+      }
+    }
+    // Mirror on the other side as well
+    for (let i = 1; i <= len; i++) {
+      const xx = stemX + (sideRight ? -i : i);
+      const yy = y - ((i / 2) | 0);
+      if (xx >= 0 && xx < 16 && yy >= 0 && yy < 16) {
+        px(ctx, x0 + xx, y0 + yy, frond);
+      }
+    }
+  }
+}
+
+function drawTallGrass(ctx: CanvasRenderingContext2D, x0: number, y0: number, rng: () => number): void {
+  const palette = ["#4FA035", "#69B040", "#82C455"];
+  // 8–10 vertical strands in the bottom half
+  const count = 8 + ((rng() * 3) | 0);
+  for (let i = 0; i < count; i++) {
+    const sx = 1 + ((rng() * 14) | 0);
+    const top = 9 + ((rng() * 3) | 0);
+    const c = palette[(rng() * palette.length) | 0];
+    for (let y = top; y <= 15; y++) px(ctx, x0 + sx, y0 + y, c);
+  }
+}
+
+function drawFlower(
+  ctx: CanvasRenderingContext2D,
+  x0: number, y0: number,
+  petalColor: string, centerColor: string,
+): void {
+  // Stem
+  const stem = "#355E29";
+  for (let y = 8; y <= 15; y++) px(ctx, x0 + 8, y0 + y, stem);
+  // Two leaves on the stem
+  px(ctx, x0 + 7, y0 + 11, stem);
+  px(ctx, x0 + 9, y0 + 13, stem);
+  // 3×3 petal blob centred at (8, 5), with a 1-px centre
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      px(ctx, x0 + 8 + dx, y0 + 5 + dy, petalColor);
+    }
+  }
+  // Four extra petal pixels in cardinal positions for a flower look
+  px(ctx, x0 + 8, y0 + 3, petalColor);
+  px(ctx, x0 + 8, y0 + 7, petalColor);
+  px(ctx, x0 + 6, y0 + 5, petalColor);
+  px(ctx, x0 + 10, y0 + 5, petalColor);
+  // Centre pixel
+  px(ctx, x0 + 8, y0 + 5, centerColor);
+}
+
+/**
  * Extrude the 1-px border of each tile's content area into the surrounding pad
  * region. This prevents mipmap averaging from sampling black empty canvas space
  * when a mip level straddles the boundary between a tile's content and its
@@ -192,8 +322,31 @@ export function buildAtlasTexture(): THREE.CanvasTexture {
   drawWoodEnd(ctx, TILE_IDS.SpruceEnd,   0x3E2723);
   drawWoodBark(ctx, TILE_IDS.SpruceBark, 0x3E2723);
 
-  // Extrude every non-Air tile so mipmap averaging never samples empty canvas.
-  const allTileIds = Object.values(TILE_IDS).filter(id => id !== TILE_IDS.Air);
+  // ── Cross-sprite vegetation tiles (alpha-cut) ───────────────────────────────
+  drawSpriteTile(ctx, tc(TILE_IDS.Bush),         tr(TILE_IDS.Bush),         drawBush,      TILE_IDS.Bush + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.DeadBush),     tr(TILE_IDS.DeadBush),     drawDeadBush,  TILE_IDS.DeadBush + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.Fern),         tr(TILE_IDS.Fern),         drawFern,      TILE_IDS.Fern + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.TallGrass),    tr(TILE_IDS.TallGrass),    drawTallGrass, TILE_IDS.TallGrass + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.FlowerRed),    tr(TILE_IDS.FlowerRed),
+    (c, x, y) => drawFlower(c, x, y, "#C04040", "#822323"),
+    TILE_IDS.FlowerRed + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.FlowerYellow), tr(TILE_IDS.FlowerYellow),
+    (c, x, y) => drawFlower(c, x, y, "#E8C440", "#9E7A1A"),
+    TILE_IDS.FlowerYellow + 4000);
+  drawSpriteTile(ctx, tc(TILE_IDS.FlowerBlue),   tr(TILE_IDS.FlowerBlue),
+    (c, x, y) => drawFlower(c, x, y, "#5C7CC8", "#2F3F7A"),
+    TILE_IDS.FlowerBlue + 4000);
+
+  // Extrude every non-Air, non-sprite tile so mipmap averaging never samples
+  // empty canvas. Sprite tiles are intentionally skipped — extruding their
+  // alpha-zero borders would bleed the canvas-clear back into the content.
+  const SPRITE_TILE_IDS = new Set<number>([
+    TILE_IDS.Bush, TILE_IDS.DeadBush, TILE_IDS.Fern, TILE_IDS.TallGrass,
+    TILE_IDS.FlowerRed, TILE_IDS.FlowerYellow, TILE_IDS.FlowerBlue,
+  ]);
+  const allTileIds = Object.values(TILE_IDS).filter(
+    id => id !== TILE_IDS.Air && !SPRITE_TILE_IDS.has(id),
+  );
   for (const id of allTileIds) {
     extrudeTile(ctx, tc(id), tr(id));
   }

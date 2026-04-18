@@ -82,6 +82,74 @@ export function buildChunkMesh(
     [2, -1], [2, 1],
   ];
 
+  // ── Pass 1: cross-shape sprites (vegetation) ────────────────────────────────
+  // Walk the grid once and emit two crossed double-sided quads per sprite cell.
+  // The cube path below skips these blocks naturally because they're transparent.
+  for (let y = 0; y < CHUNK_SIZE; y++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        const block = data[chunkIndex(x, y, z)];
+        const def = BLOCK_DEFS[block];
+        if (!def || def.renderShape !== "cross") continue;
+
+        const tileIdx = def.tiles.side;
+        const tCol = tileIdx % ATLAS_COLS;
+        const tRow = (tileIdx / ATLAS_COLS) | 0;
+        const atlasW = ATLAS_COLS * ATLAS_TILE_PADDED;
+        const atlasH = ATLAS_ROWS * ATLAS_TILE_PADDED;
+        const htU = 0.5 / atlasW;
+        const htV = 0.5 / atlasH;
+        const u0 = (tCol * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasW + htU;
+        const u1 = (tCol * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasW - htU;
+        const v0 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasH + htV;
+        const v1 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasH - htV;
+
+        // Light from this cell (sprite occupies an air voxel that retained its light value).
+        let lightLevel = 15;
+        if (lightData) lightLevel = Math.max(lightData[chunkIndex(x, y, z)], def.lightEmit);
+        const lightFactor = 0.2 + (lightLevel / 15) * 0.8;
+        const r = lightFactor, g = lightFactor, b = lightFactor;
+
+        // Two quads, NW↔SE and NE↔SW. Material uses side: DoubleSide so
+        // a single winding renders both faces.
+        const quads: Array<{ corners: [number, number, number][]; nx: number; nz: number }> = [
+          {
+            corners: [
+              [x + 0, y + 0, z + 0],
+              [x + 1, y + 0, z + 1],
+              [x + 1, y + 1, z + 1],
+              [x + 0, y + 1, z + 0],
+            ],
+            nx:  Math.SQRT1_2, nz: -Math.SQRT1_2,
+          },
+          {
+            corners: [
+              [x + 1, y + 0, z + 0],
+              [x + 0, y + 0, z + 1],
+              [x + 0, y + 1, z + 1],
+              [x + 1, y + 1, z + 0],
+            ],
+            nx:  Math.SQRT1_2, nz:  Math.SQRT1_2,
+          },
+        ];
+
+        for (const q of quads) {
+          const vi = positions.length / 3;
+          const uvc: [number, number][] = [
+            [u0, v1], [u1, v1], [u1, v0], [u0, v0],
+          ];
+          for (let k = 0; k < 4; k++) {
+            positions.push(q.corners[k][0], q.corners[k][1], q.corners[k][2]);
+            normals.push(q.nx, 0, q.nz);
+            colors.push(r, g, b);
+            uvs.push(uvc[k][0], uvc[k][1]);
+          }
+          indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+        }
+      }
+    }
+  }
+
   for (const [axis, dir] of faces) {
     const uAxis = (axis + 1) % 3;
     const vAxis = (axis + 2) % 3;

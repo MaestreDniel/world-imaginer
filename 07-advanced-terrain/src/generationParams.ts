@@ -66,6 +66,14 @@ export interface OreParams {
   coalThreshold: number;
 }
 
+export interface VegetationParams {
+  enabled: boolean;
+  /** Multiplies every biome's decorationDensity. 0 = no decorations, 1 = default, 3 = lush. */
+  globalDensity: number;
+  /** Multiplies every biome's treeDensity. 0 = no trees, 1 = default, 3 = thick forest. */
+  treeDensity: number;
+}
+
 export interface ErosionParams {
   enabled: boolean;
   droplets: number;
@@ -85,6 +93,7 @@ export interface GenerationParams {
   rivers: RiverParams;
   biomes: BiomeParams;
   ores: OreParams;
+  vegetation: VegetationParams;
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
@@ -142,6 +151,11 @@ export const DEFAULT_PARAMS: GenerationParams = {
     ironThreshold: 0.55,
     ironMinDepth: 15,
     coalThreshold: 0.50,
+  },
+  vegetation: {
+    enabled: true,
+    globalDensity: 1.0,
+    treeDensity: 1.0,
   },
 };
 

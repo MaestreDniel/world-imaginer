@@ -48,7 +48,12 @@ export class World {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.scene = scene;
     this.atlasTexture = buildAtlasTexture();
-    this.material = new THREE.MeshLambertMaterial({ vertexColors: true, map: this.atlasTexture });
+    this.material = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      map: this.atlasTexture,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide,
+    });
 
     // Spawn worker pool
     const count = Math.min(navigator.hardwareConcurrency || 4, 8);

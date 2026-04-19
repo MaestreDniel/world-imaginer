@@ -15,6 +15,7 @@ Each sub-folder is an independent project exploring a different aspect of proced
 | 05 | [Biomes & Structures](./05-biomes-and-structures) | Temperature/humidity biome maps, trees, cacti, and varied terrain |
 | 06 | [Biome Blending](./06-biome-blending) | Smooth terrain transitions at biome boundaries, sea-level at Y=0 |
 | 07 | [Advanced Terrain](./07-advanced-terrain) | Domain warping, Voronoi noise, and hydraulic erosion |
+| 08 | [Spline Terrain](./08-spline-terrain) | Climate-driven spline-shaped terrain with runtime-editable splines |
 
 ## Stack
 

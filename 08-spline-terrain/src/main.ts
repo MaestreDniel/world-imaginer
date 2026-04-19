@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { World } from "./world";
-import { CHUNK_SIZE } from "./chunk";
+import { CHUNK_SIZE, DEFAULT_CONFIG } from "./chunk";
 import { createBiomeSampler, createBiomeDebugSampler, BIOME_DEFS } from "./biomes";
 import { WalkController, CAMERA_HEIGHT } from "./walkController";
 import { DEFAULT_PARAMS, cloneParams, type GenerationParams } from "./generationParams";
@@ -103,9 +103,8 @@ let world = new World(scene, {
   seed: currentSeed,
   params: currentParams,
 });
-const WATER_LEVEL = 0;
 let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
-let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, WATER_LEVEL);
+let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, DEFAULT_CONFIG.waterLevel);
 let renderRadius = Number(radiusSlider.value);
 
 const debugPanel = new DebugPanel(currentParams, (newParams, randomizeSeed) => {
@@ -183,7 +182,7 @@ function rebuildWorld() {
     params: currentParams,
   });
   biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
-  biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, WATER_LEVEL);
+  biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, DEFAULT_CONFIG.waterLevel);
   walkController.setWorld(world);
 }
 

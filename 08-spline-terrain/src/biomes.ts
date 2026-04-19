@@ -86,10 +86,6 @@ export interface BiomeDef {
   name: string;
   surfaceBlock: number;
   subSurfaceBlock: number;
-  /** Multiplier for terrain height amplitude (0.3 = flat, 2.0 = mountainous) */
-  heightScale: number;
-  /** Offset added to base height */
-  heightOffset: number;
   /** Tree type to place, or null for no trees */
   treeWood: number | null;
   treeLeaves: number | null;
@@ -123,8 +119,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Ocean",
     surfaceBlock: Block.Sand,
     subSurfaceBlock: Block.Sand,
-    heightScale: 0.3,
-    heightOffset: -8,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
   },
@@ -132,8 +126,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Beach",
     surfaceBlock: Block.Sand,
     subSurfaceBlock: Block.Sand,
-    heightScale: 0.2,
-    heightOffset: -2,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
   },
@@ -141,8 +133,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Desert",
     surfaceBlock: Block.Sand,
     subSurfaceBlock: Block.RedSand,
-    heightScale: 0.3,
-    heightOffset: 7,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: true,
     decorationDensity: 0.04,
     decorations: [{ block: Block.DeadBush, weight: 1.0 }],
@@ -151,8 +141,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Savanna",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.4,
-    heightOffset: 6,
     treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.10, cactus: false,
     decorationDensity: 0.18,
     decorations: [
@@ -165,8 +153,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Plains",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.2,
-    heightOffset: 5,
     treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.15, cactus: false,
     decorationDensity: 0.22,
     decorations: [
@@ -180,8 +166,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Forest",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.6,
-    heightOffset: 4,
     treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.35, cactus: false,
     decorationDensity: 0.20,
     decorations: [
@@ -195,8 +179,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Birch Forest",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.6,
-    heightOffset: 4,
     treeWood: Block.BirchWood, treeLeaves: Block.BirchLeaves, treeDensity: 0.25, cactus: false,
     decorationDensity: 0.20,
     decorations: [
@@ -210,8 +192,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Taiga",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.4,
-    heightOffset: 3,
     treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.30, cactus: false,
     decorationDensity: 0.22,
     decorations: [
@@ -224,8 +204,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Tundra",
     surfaceBlock: Block.Snow,
     subSurfaceBlock: Block.Dirt,
-    heightScale: 0.2,
-    heightOffset: 6,
     treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.03, cactus: false,
     decorationDensity: 0.04,
     decorations: [
@@ -237,8 +215,6 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Mountains",
     surfaceBlock: Block.Stone,
     subSurfaceBlock: Block.Stone,
-    heightScale: 2.0,
-    heightOffset: 10,
     treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.10, cactus: false,
     decorationDensity: 0.10,
     decorations: [
@@ -248,171 +224,114 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
   },
 };
 
-/**
- * Pre-computed grass color for each biome, based on a representative
- * (temperature, humidity) midpoint derived from the biome threshold grid.
- *
- * Biomes that don't use Grass as surfaceBlock still have a color here
- * so the blending math in computeBlendedBiomeParams works uniformly.
- */
-export const BIOME_GRASS_COLORS: Record<number, number> = {
-  [Biome.Ocean]:       grassColorFromClimate( 0.0,  0.0),
-  [Biome.Beach]:       grassColorFromClimate( 0.0,  0.0),
-  [Biome.Desert]:      grassColorFromClimate( 0.35, -0.2),   // hot, dry
-  [Biome.Savanna]:     grassColorFromClimate( 0.35,  0.3),   // hot, humid
-  [Biome.Plains]:      grassColorFromClimate( 0.0,   0.0),   // mild, neutral
-  [Biome.Forest]:      grassColorFromClimate( 0.0,   0.35),  // mild, humid
-  [Biome.BirchForest]: grassColorFromClimate( 0.0,   0.05),  // mild, moderate
-  [Biome.Taiga]:       grassColorFromClimate(-0.3,   0.2),   // cold, humid
-  [Biome.Tundra]:      grassColorFromClimate(-0.3,  -0.15),  // cold, dry
-  [Biome.Mountains]:   grassColorFromClimate(-0.1,   0.0),   // cool, neutral
-};
 
-/**
- * Create a biome sampler for a given seed.
- *
- * Returns a function that maps world (x, z) to a biome ID.
- * Temperature and humidity are sampled at large scale (300 blocks)
- * and mapped to biomes via a simple threshold grid.
- */
 export function createBiomeSampler(seed: number, biomeParams: BiomeParams = DEFAULT_PARAMS.biomes) {
-  const tempNoise = createNoise(seed + 10);
+  const tempNoise  = createNoise(seed + 10);
   const humidNoise = createNoise(seed + 11);
-  const continentNoise = createNoise(seed + 12);
 
-  function sampleNoise(wx: number, wz: number) {
-    // Voronoi F2-F1 at large scale produces organic continent edges.
-    // F2-F1 → 0 at cell boundaries (coastlines), large in cell interiors.
-    const v = continentNoise.voronoi2D(wx / biomeParams.continentScale, wz / biomeParams.continentScale);
-    const edgeDist = v.f2 - v.f1; // 0 at boundary, ~0.5+ in interior
-
-    // Map to continent value: interior → land (positive), edge → coast/ocean (negative)
-    // fBm perturbation breaks up straight Voronoi edges
-    const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
-    const continent = (edgeDist - 0.25) * 2.0 + perturbation;
-    const temp = tempNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
-    const humid = humidNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
-    return { continent, temp, humid };
-  }
-
-  function biomeFromNoise(continent: number, temp: number, humid: number): BiomeId {
-    if (continent < biomeParams.oceanThreshold) return Biome.Ocean;
-    if (continent < biomeParams.beachThreshold) return Biome.Beach;
-    if (continent > biomeParams.mountainThreshold) return Biome.Mountains;
-
-    if (temp > 0.2) {
-      return humid > 0.15 ? Biome.Savanna : Biome.Desert;
-    } else if (temp > -0.15) {
-      if (humid > 0.2) return Biome.Forest;
-      if (humid > -0.1) return Biome.BirchForest;
-      return Biome.Plains;
-    } else {
-      return humid > 0.05 ? Biome.Taiga : Biome.Tundra;
-    }
-  }
-
-  return function getBiome(wx: number, wz: number): BiomeId {
-    const { continent, temp, humid } = sampleNoise(wx, wz);
-    return biomeFromNoise(continent, temp, humid);
+  return function sampleTempHumid(wx: number, wz: number): { temp: number; humid: number } {
+    const s = biomeParams.tempHumidityScale;
+    return {
+      temp:  tempNoise.fbm2D(wx / s, wz / s, 4, 0.5, 2.0),
+      humid: humidNoise.fbm2D(wx / s, wz / s, 4, 0.5, 2.0),
+    };
   };
 }
 
+function pickTempHumidBiome(temp: number, humid: number): BiomeId {
+  if (temp > 0.2) {
+    return humid > 0.15 ? Biome.Savanna : Biome.Desert;
+  } else if (temp > -0.15) {
+    if (humid > 0.2) return Biome.Forest;
+    if (humid > -0.1) return Biome.BirchForest;
+    return Biome.Plains;
+  } else {
+    return humid > 0.05 ? Biome.Taiga : Biome.Tundra;
+  }
+}
+
 /**
- * Biome blending — the key addition in project 06.
- *
- * Without blending, adjacent columns in different biomes can have
- * wildly different heights (e.g. Mountains heightScale=2.0 next to
- * Plains heightScale=0.5), creating vertical cliff walls.
- *
- * The fix: for each column, sample biomes in a small radius and
- * average their heightScale and heightOffset. This produces smooth
- * gradients at biome boundaries while preserving local noise detail.
- *
- * Only height parameters are blended — surface block selection stays
- * discrete (uses the dominant biome in the kernel) so you get smooth
- * slopes with clean block transitions.
+ * Pick a biome using climate noise + the resulting height. Climate-field
+ * overrides for Ocean / Beach / Mountains short-circuit; otherwise the
+ * existing (temp, humid) matrix applies.
  */
+export function classifyBiome(
+  continentalness: number,
+  erosion: number,
+  temp: number,
+  humid: number,
+  height: number,
+  waterLevel: number,
+  t: { oceanContinentalness: number; coastContinentalness: number; beachBand: number; inlandContinentalness: number; mountainErosion: number },
+): BiomeId {
+  if (continentalness < t.oceanContinentalness) return Biome.Ocean;
+  if (continentalness < t.coastContinentalness && height < waterLevel + t.beachBand) return Biome.Beach;
+  if (continentalness > t.inlandContinentalness && erosion < t.mountainErosion) return Biome.Mountains;
+  return pickTempHumidBiome(temp, humid);
+}
+
 export const BLEND_RADIUS = 4;
 
 const BIOME_COUNT = Object.keys(Biome).length;
 
-export function computeBlendedBiomeParams(
+/**
+ * Blended grass colors + dominant biome per column. Height is no longer
+ * biome-driven, so only grass-color blending remains.
+ */
+export function computeBlendedGrassColors(
   worldXOff: number,
   worldZOff: number,
   chunkSize: number,
-  getBiome: (wx: number, wz: number) => BiomeId,
+  getTempHumid: (wx: number, wz: number) => { temp: number; humid: number },
+  getDominantBiome: (lx: number, lz: number) => BiomeId,
 ): {
-  blendedScales: Float64Array;
-  blendedOffsets: Float64Array;
   dominantBiomes: Uint8Array;
   grassColors: Uint32Array;
 } {
   const padSize = chunkSize + 2 * BLEND_RADIUS;
-  const paddedBiomes = new Uint8Array(padSize * padSize);
+  const paddedTemp  = new Float32Array(padSize * padSize);
+  const paddedHumid = new Float32Array(padSize * padSize);
 
-  // Fill padded grid with biome IDs
   for (let pz = 0; pz < padSize; pz++) {
     for (let px = 0; px < padSize; px++) {
-      paddedBiomes[pz * padSize + px] = getBiome(
+      const { temp, humid } = getTempHumid(
         worldXOff - BLEND_RADIUS + px,
         worldZOff - BLEND_RADIUS + pz,
       );
+      const idx = pz * padSize + px;
+      paddedTemp[idx]  = temp;
+      paddedHumid[idx] = humid;
     }
   }
 
   const kernelSize = 2 * BLEND_RADIUS + 1;
   const kernelArea = kernelSize * kernelSize;
-  const blendedScales = new Float64Array(chunkSize * chunkSize);
-  const blendedOffsets = new Float64Array(chunkSize * chunkSize);
   const dominantBiomes = new Uint8Array(chunkSize * chunkSize);
-  const grassColors = new Uint32Array(chunkSize * chunkSize);
-  const biomeCounts = new Uint8Array(BIOME_COUNT);
+  const grassColors    = new Uint32Array(chunkSize * chunkSize);
 
   for (let lz = 0; lz < chunkSize; lz++) {
     for (let lx = 0; lx < chunkSize; lx++) {
-      let totalScale = 0;
-      let totalOffset = 0;
       let totalR = 0, totalG = 0, totalB = 0;
-      biomeCounts.fill(0);
-
       for (let kz = 0; kz < kernelSize; kz++) {
         for (let kx = 0; kx < kernelSize; kx++) {
-          const biome = paddedBiomes[(lz + kz) * padSize + (lx + kx)];
-          const def = BIOME_DEFS[biome];
-          totalScale += def.heightScale;
-          totalOffset += def.heightOffset;
-          biomeCounts[biome]++;
-          const gc = BIOME_GRASS_COLORS[biome];
+          const pIdx = (lz + kz) * padSize + (lx + kx);
+          const gc = grassColorFromClimate(paddedTemp[pIdx], paddedHumid[pIdx]);
           totalR += (gc >> 16) & 0xFF;
           totalG += (gc >>  8) & 0xFF;
           totalB +=  gc        & 0xFF;
         }
       }
-
       const idx = lz * chunkSize + lx;
-      blendedScales[idx] = totalScale / kernelArea;
-      blendedOffsets[idx] = totalOffset / kernelArea;
-
-      // Blended grass color — weighted average across kernel
       const avgR = Math.round(totalR / kernelArea);
       const avgG = Math.round(totalG / kernelArea);
       const avgB = Math.round(totalB / kernelArea);
       grassColors[idx] = (avgR << 16) | (avgG << 8) | avgB;
-
-      // Dominant biome = most frequent in kernel
-      let maxCount = 0;
-      let dominant = 0;
-      for (let b = 0; b < BIOME_COUNT; b++) {
-        if (biomeCounts[b] > maxCount) {
-          maxCount = biomeCounts[b];
-          dominant = b;
-        }
-      }
-      dominantBiomes[idx] = dominant;
+      dominantBiomes[idx] = getDominantBiome(lx, lz);
     }
   }
 
-  return { blendedScales, blendedOffsets, dominantBiomes, grassColors };
+  void BIOME_COUNT; // silence unused warning if applicable
+  return { dominantBiomes, grassColors };
 }
 
 export interface BiomeDebugInfo {

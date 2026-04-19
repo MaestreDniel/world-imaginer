@@ -1,6 +1,9 @@
 import { Block, BLOCK_DEFS } from "./blocks";
 import { createNoise } from "./perlin";
-import { createBiomeSampler, BIOME_DEFS, Biome, computeBlendedBiomeParams } from "./biomes";
+import {
+  createBiomeSampler, BIOME_DEFS, Biome, classifyBiome, computeBlendedGrassColors,
+} from "./biomes";
+import { createTerrainShaper } from "./terrainShape";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
 import { erode } from "./erosion";
 import { type GenerationParams, DEFAULT_PARAMS, toErosionConfig } from "./generationParams";
@@ -61,40 +64,41 @@ export function generateChunk(
   const aquiferPresenceNoise = createNoise(seed + 13);
   const aquiferLevelNoise    = createNoise(seed + 14);
   const bedrockNoise         = createNoise(seed + 15);
-  const getBiome = createBiomeSampler(seed, config.params.biomes);
-
   const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 
   const worldXOff = chunkX * CHUNK_SIZE;
   const worldYOff = chunkY * CHUNK_SIZE;
   const worldZOff = chunkZ * CHUNK_SIZE;
 
-  // Biome blending: compute averaged heightScale/heightOffset over a 9x9
-  // kernel per column. The dominant biome is used for block selection.
-  const { blendedScales, blendedOffsets, dominantBiomes, grassColors } = computeBlendedBiomeParams(
-    worldXOff, worldZOff, CHUNK_SIZE, getBiome,
-  );
+  // Climate + spline pipeline replaces biome-driven heights.
+  const terrainShaper = createTerrainShaper(seed, config.params);
+  const tempHumidSampler = createBiomeSampler(seed, config.params.biomes);
 
-  const biomes = dominantBiomes;
   const heights = new Float64Array(CHUNK_SIZE * CHUNK_SIZE);
-
-  const { terrain } = config.params;
+  const biomes  = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
 
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wx = worldXOff + lx;
       const wz = worldZOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
+      const h = terrainShaper.heightAt(wx, wz);
+      heights[idx] = h;
 
-      const baseNoise = noise.warpedFbm2D(
-        wx / terrain.scale, wz / terrain.scale,
-        terrain.octaves, terrain.persistence, terrain.lacunarity,
-        terrain.warpStrength,
-        terrain.warpIterations,
+      const { continentalness, erosion } = terrainShaper.sampleClimate(wx, wz);
+      const { temp, humid } = tempHumidSampler(wx, wz);
+      biomes[idx] = classifyBiome(
+        continentalness, erosion, temp, humid,
+        h, waterLevel, config.params.shape.biomeClimate,
       );
-      heights[idx] = baseHeight + blendedOffsets[idx] + baseNoise * terrain.heightMultiplier * blendedScales[idx];
     }
   }
+
+  const { grassColors } = computeBlendedGrassColors(
+    worldXOff, worldZOff, CHUNK_SIZE,
+    tempHumidSampler,
+    (lx, lz) => biomes[lz * CHUNK_SIZE + lx] as import("./biomes").BiomeId,
+  );
 
   // ── River channels from Voronoi edges ────────────────────────────
   // Voronoi F2-F1 → 0 at cell boundaries. We use this to carve
@@ -142,16 +146,7 @@ export function generateChunk(
         if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE) {
           paddedMap[pz * padSize + px] = heights[lz * CHUNK_SIZE + lx];
         } else {
-          // Recompute for margin cells
-          const marginBiome = getBiome(wx, wz);
-          const marginDef = BIOME_DEFS[marginBiome];
-          const marginNoise = noise.warpedFbm2D(
-            wx / terrain.scale, wz / terrain.scale,
-            terrain.octaves, terrain.persistence, terrain.lacunarity,
-            terrain.warpStrength, terrain.warpIterations,
-          );
-          paddedMap[pz * padSize + px] = baseHeight + marginDef.heightOffset
-            + marginNoise * terrain.heightMultiplier * marginDef.heightScale;
+          paddedMap[pz * padSize + px] = terrainShaper.heightAt(wx, wz);
         }
       }
     }

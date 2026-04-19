@@ -83,6 +83,18 @@ services:
     networks:
       - app-network
 
+  spline-terrain:
+    build:
+      context: ./08-spline-terrain
+    container_name: spline_terrain
+    ports:
+      - "5181:5181"
+    volumes:
+      - ./08-spline-terrain:/app
+      - spline_terrain_modules:/app/node_modules
+    networks:
+      - app-network
+
 networks:
   app-network:
     external: true
@@ -96,3 +108,4 @@ volumes:
   biomes_and_structures_modules:
   biome_blending_modules:
   advanced_terrain_modules:
+  spline_terrain_modules:

@@ -1,6 +1,7 @@
 import { Block } from "./blocks";
 import { createNoise } from "./perlin";
-import { type BiomeParams, DEFAULT_PARAMS } from "./generationParams";
+import { type BiomeParams, type GenerationParams, DEFAULT_PARAMS } from "./generationParams";
+import { createTerrainShaper } from "./terrainShape";
 
 /**
  * Grass color gradient — maps (temperature, humidity) to a packed 0xRRGGBB color.
@@ -335,39 +336,37 @@ export interface BiomeDebugInfo {
   biome: BiomeId;
   temperature: number;
   humidity: number;
-  continent: number;
+  continentalness: number;
+  erosion: number;
+  peaksValleys: number;
+  height: number;
 }
 
 /**
- * Create a debug sampler that returns raw noise values alongside the biome.
- * Used by the debug overlay — not called during chunk generation.
+ * Create a debug sampler that returns climate + spline-derived height + the
+ * classified biome. Used by the debug overlay — not called during chunk
+ * generation.
  */
-export function createBiomeDebugSampler(seed: number, biomeParams: BiomeParams = DEFAULT_PARAMS.biomes) {
-  const tempNoise = createNoise(seed + 10);
-  const humidNoise = createNoise(seed + 11);
-  const continentNoise = createNoise(seed + 12);
+export function createBiomeDebugSampler(seed: number, params: GenerationParams, waterLevel: number) {
+  const terrainShaper = createTerrainShaper(seed, params);
+  const tempHumidSampler = createBiomeSampler(seed, params.biomes);
 
   return function getBiomeDebug(wx: number, wz: number): BiomeDebugInfo {
-    const v = continentNoise.voronoi2D(wx / biomeParams.continentScale, wz / biomeParams.continentScale);
-    const edgeDist = v.f2 - v.f1;
-    const perturbation = continentNoise.fbm2D(wx / 200, wz / 200, 3, 0.5, 2.0) * 0.15;
-    const continent = (edgeDist - 0.25) * 2.0 + perturbation;
-    const temperature = tempNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
-    const humidity = humidNoise.fbm2D(wx / biomeParams.tempHumidityScale, wz / biomeParams.tempHumidityScale, 4, 0.5, 2.0);
-
-    let biome: BiomeId;
-    if (continent < biomeParams.oceanThreshold) biome = Biome.Ocean;
-    else if (continent < biomeParams.beachThreshold) biome = Biome.Beach;
-    else if (continent > biomeParams.mountainThreshold) biome = Biome.Mountains;
-    else if (temperature > 0.2) biome = humidity > 0.15 ? Biome.Savanna : Biome.Desert;
-    else if (temperature > -0.15) {
-      if (humidity > 0.2) biome = Biome.Forest;
-      else if (humidity > -0.1) biome = Biome.BirchForest;
-      else biome = Biome.Plains;
-    } else {
-      biome = humidity > 0.05 ? Biome.Taiga : Biome.Tundra;
-    }
-
-    return { biome, temperature, humidity, continent };
+    const sample = terrainShaper.sampleClimate(wx, wz);
+    const height = terrainShaper.heightFromClimate(sample);
+    const { temp, humid } = tempHumidSampler(wx, wz);
+    const biome = classifyBiome(
+      sample.continentalness, sample.erosion, temp, humid,
+      height, waterLevel, params.shape.biomeClimate,
+    );
+    return {
+      biome,
+      temperature: temp,
+      humidity: humid,
+      continentalness: sample.continentalness,
+      erosion: sample.erosion,
+      peaksValleys: sample.peaksValleys,
+      height,
+    };
   };
 }

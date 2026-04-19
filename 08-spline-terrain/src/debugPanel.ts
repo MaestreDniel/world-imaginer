@@ -27,18 +27,6 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   {
-    id: "terrain", label: "Terrain Noise", paramsKey: "terrain", expanded: true,
-    sliders: [
-      { key: "scale",            label: "Scale",            min: 10,   max: 500, step: 5,    decimals: 0 },
-      { key: "octaves",          label: "Octaves",          min: 1,    max: 8,   step: 1,    decimals: 0 },
-      { key: "persistence",      label: "Persistence",      min: 0.01, max: 1,   step: 0.01, decimals: 2 },
-      { key: "lacunarity",       label: "Lacunarity",       min: 1,    max: 4,   step: 0.1,  decimals: 1 },
-      { key: "warpStrength",     label: "Warp Strength",    min: 0,    max: 10,  step: 0.1,  decimals: 1 },
-      { key: "warpIterations",   label: "Warp Iterations",  min: 0,    max: 4,   step: 1,    decimals: 0 },
-      { key: "heightMultiplier", label: "Height Multiplier", min: 1,   max: 60,  step: 1,    decimals: 0 },
-    ],
-  },
-  {
     id: "erosion", label: "Erosion", paramsKey: "erosion", expanded: true,
     toggle: { key: "enabled", label: "Enabled" },
     sliders: [
@@ -86,11 +74,7 @@ const SECTIONS: SectionDef[] = [
   {
     id: "biomes", label: "Biomes", paramsKey: "biomes", expanded: false,
     sliders: [
-      { key: "tempHumidityScale", label: "Temp/Humidity Scale", min: 100,  max: 600,  step: 10,   decimals: 0 },
-      { key: "continentScale",    label: "Continent Scale",     min: 200,  max: 1000, step: 10,   decimals: 0 },
-      { key: "oceanThreshold",    label: "Ocean Threshold",     min: -0.6, max: 0,    step: 0.01, decimals: 2 },
-      { key: "beachThreshold",    label: "Beach Threshold",     min: -0.4, max: 0.1,  step: 0.01, decimals: 2 },
-      { key: "mountainThreshold", label: "Mountain Threshold",  min: 0.2,  max: 0.8,  step: 0.01, decimals: 2 },
+      { key: "tempHumidityScale", label: "Temp/Humidity Scale", min: 100, max: 600, step: 10, decimals: 0 },
     ],
   },
   {
@@ -121,28 +105,6 @@ interface Preset {
 
 const BUILT_IN_PRESETS: Preset[] = [
   { name: "Default", params: cloneParams(DEFAULT_PARAMS), builtIn: true },
-  {
-    name: "Flat Plains", builtIn: true,
-    params: {
-      ...cloneParams(DEFAULT_PARAMS),
-      terrain: { scale: 120, octaves: 2, persistence: 0.3, lacunarity: 2.0, warpStrength: 0, warpIterations: 0, heightMultiplier: 6 },
-      erosion: { ...DEFAULT_PARAMS.erosion, enabled: false },
-    },
-  },
-  {
-    name: "Extreme Mountains", builtIn: true,
-    params: {
-      ...cloneParams(DEFAULT_PARAMS),
-      terrain: { scale: 60, octaves: 7, persistence: 0.6, lacunarity: 2.2, warpStrength: 5.0, warpIterations: 2, heightMultiplier: 50 },
-    },
-  },
-  {
-    name: "Island Archipelago", builtIn: true,
-    params: {
-      ...cloneParams(DEFAULT_PARAMS),
-      biomes: { tempHumidityScale: 300, continentScale: 250, oceanThreshold: -0.15, beachThreshold: -0.05, mountainThreshold: 0.5 },
-    },
-  },
   {
     name: "Cave Heavy", builtIn: true,
     params: {
@@ -614,7 +576,6 @@ export class DebugPanel {
           }
           const raw = data.params ?? {};
           const params: GenerationParams = {
-            terrain:  { ...DEFAULT_PARAMS.terrain,  ...(raw.terrain  ?? {}) },
             climate:  { ...DEFAULT_PARAMS.climate,  ...(raw.climate  ?? {}) },
             shape:    { ...DEFAULT_PARAMS.shape,    ...(raw.shape    ?? {}) },
             extent:   { ...DEFAULT_PARAMS.extent,   ...(raw.extent   ?? {}) },

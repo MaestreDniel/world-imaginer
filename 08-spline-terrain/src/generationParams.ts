@@ -2,17 +2,6 @@ import { type ErosionConfig, DEFAULT_EROSION } from "./erosion";
 import { type ClimateParams, DEFAULT_CLIMATE } from "./climate";
 import { type TerrainShape, DEFAULT_TERRAIN_SHAPE } from "./splines";
 
-// ── Terrain noise ──────────────────────────────────────────────────
-export interface TerrainParams {
-  scale: number;
-  octaves: number;
-  persistence: number;
-  lacunarity: number;
-  warpStrength: number;
-  warpIterations: number;
-  heightMultiplier: number;
-}
-
 export interface CaveParams {
   /** Noise scale for tunnel sizing (larger = wider features). */
   scale: number;
@@ -55,10 +44,6 @@ export interface RiverParams {
 
 export interface BiomeParams {
   tempHumidityScale: number;
-  continentScale: number;
-  oceanThreshold: number;
-  beachThreshold: number;
-  mountainThreshold: number;
 }
 
 export interface OreParams {
@@ -111,7 +96,6 @@ export interface TerrainShapeParams {
 }
 
 export interface GenerationParams {
-  terrain: TerrainParams;
   climate: ClimateParams;
   shape: TerrainShapeParams;
   extent: WorldExtentParams;
@@ -125,15 +109,6 @@ export interface GenerationParams {
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
-  terrain: {
-    scale: 115,
-    octaves: 6,
-    persistence: 0.5,
-    lacunarity: 1.7,
-    warpStrength: 2.4,
-    warpIterations: 1,
-    heightMultiplier: 55,
-  },
   climate: DEFAULT_CLIMATE,
   shape: {
     shape: DEFAULT_TERRAIN_SHAPE,
@@ -184,10 +159,6 @@ export const DEFAULT_PARAMS: GenerationParams = {
   },
   biomes: {
     tempHumidityScale: 480,
-    continentScale: 850,
-    oceanThreshold: -0.21,
-    beachThreshold: -0.11,
-    mountainThreshold: 0.8,
   },
   ores: {
     scale: 6,

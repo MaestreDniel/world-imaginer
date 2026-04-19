@@ -103,8 +103,9 @@ let world = new World(scene, {
   seed: currentSeed,
   params: currentParams,
 });
+const WATER_LEVEL = 0;
 let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
-let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
+let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, WATER_LEVEL);
 let renderRadius = Number(radiusSlider.value);
 
 const debugPanel = new DebugPanel(currentParams, (newParams, randomizeSeed) => {
@@ -182,7 +183,7 @@ function rebuildWorld() {
     params: currentParams,
   });
   biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
-  biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams.biomes);
+  biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, WATER_LEVEL);
   walkController.setWorld(world);
 }
 
@@ -291,7 +292,10 @@ function animate(timestamp: number) {
       `Erosion: ${currentParams.erosion.enabled ? 'ON' : 'OFF'} (${currentParams.erosion.droplets} drops)<br><br>` +
       `Temperature: ${debug.temperature.toFixed(3)}<br>` +
       `Humidity: ${debug.humidity.toFixed(3)}<br>` +
-      `Continent: ${debug.continent.toFixed(3)}`;
+      `Continentalness: ${debug.continentalness.toFixed(3)}<br>` +
+      `Erosion: ${debug.erosion.toFixed(3)}<br>` +
+      `Peaks/Valleys: ${debug.peaksValleys.toFixed(3)}<br>` +
+      `Height: ${debug.height.toFixed(1)}`;
   }
 
   renderer.render(scene, camera);

@@ -5,6 +5,7 @@ import {
   DEFAULT_PARAMS,
   cloneParams,
 } from "./generationParams";
+import type { Spline, AnchoredSpline } from "./splines";
 
 // ── Slider definition metadata ─────────────────────────────────────
 interface SliderDef {
@@ -198,6 +199,7 @@ export class DebugPanel {
   private randomizeSeedCheckbox!: HTMLInputElement;
   private visible = false;
   private minimized = false;
+  private splineRerenders: Array<() => void> = [];
 
   constructor(params: GenerationParams, onApply: (params: GenerationParams, randomizeSeed: boolean) => void) {
     this.params = cloneParams(params);
@@ -271,6 +273,22 @@ export class DebugPanel {
     for (const section of SECTIONS) {
       body.appendChild(this.buildSection(section));
     }
+
+    body.appendChild(this.buildSplineSection(
+      "Splines · Continentalness → Height",
+      () => this.params.shape.shape.continent,
+      (s) => { this.params.shape.shape.continent = s; },
+    ));
+    body.appendChild(this.buildAnchoredSection(
+      "Splines · Erosion (by Continentalness)",
+      () => this.params.shape.shape.erosionByContinent,
+      (l) => { this.params.shape.shape.erosionByContinent = l; },
+    ));
+    body.appendChild(this.buildAnchoredSection(
+      "Splines · Peaks & Valleys (by Erosion)",
+      () => this.params.shape.shape.pvByErosion,
+      (l) => { this.params.shape.shape.pvByErosion = l; },
+    ));
 
     const applyRow = document.createElement("div");
     applyRow.style.cssText = "padding:10px 12px;";
@@ -442,6 +460,191 @@ export class DebugPanel {
     return row;
   }
 
+  private buildSplineSection(
+    title: string,
+    getSpline: () => Spline,
+    setSpline: (s: Spline) => void,
+  ): HTMLDivElement {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "border-bottom:1px solid #2a2a4a;";
+
+    const header = document.createElement("div");
+    header.style.cssText = "padding:6px 12px;background:#16213e;font-weight:bold;color:#e94560;cursor:pointer;";
+    header.textContent = "▼ " + title;
+    wrapper.appendChild(header);
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:6px 12px;";
+    wrapper.appendChild(body);
+
+    const table = document.createElement("div");
+    body.appendChild(table);
+
+    const addBtn = document.createElement("div");
+    addBtn.textContent = "+ Add point";
+    addBtn.style.cssText = "margin-top:4px;color:#0f3460;cursor:pointer;font-size:0.7rem;";
+    body.appendChild(addBtn);
+
+    let collapsed = false;
+    header.addEventListener("click", () => {
+      collapsed = !collapsed;
+      body.style.display = collapsed ? "none" : "block";
+      header.textContent = (collapsed ? "▶ " : "▼ ") + title;
+    });
+
+    const render = () => {
+      table.innerHTML = "";
+      const s = getSpline();
+      for (let i = 0; i < s.length; i++) {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:4px;margin-bottom:2px;align-items:center;";
+
+        const xIn = document.createElement("input");
+        xIn.type = "number"; xIn.step = "0.01";
+        xIn.value = String(s[i].x);
+        xIn.style.cssText = "width:60px;background:#0f3460;color:#ccc;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:0.7rem;";
+
+        const yIn = document.createElement("input");
+        yIn.type = "number"; yIn.step = "1";
+        yIn.value = String(s[i].y);
+        yIn.style.cssText = xIn.style.cssText;
+
+        const del = document.createElement("span");
+        del.textContent = "×";
+        del.style.cssText = "cursor:pointer;color:#e94560;padding:0 4px;";
+
+        xIn.addEventListener("change", () => {
+          const next = getSpline().map((p, j) => j === i ? { ...p, x: Number(xIn.value) } : p);
+          next.sort((a, b) => a.x - b.x);
+          setSpline(next); render();
+        });
+        yIn.addEventListener("change", () => {
+          const next = getSpline().map((p, j) => j === i ? { ...p, y: Number(yIn.value) } : p);
+          setSpline(next); render();
+        });
+        del.addEventListener("click", () => {
+          const current = getSpline();
+          if (current.length <= 2) return;
+          setSpline(current.filter((_, j) => j !== i));
+          render();
+        });
+
+        row.appendChild(xIn); row.appendChild(yIn); row.appendChild(del);
+        table.appendChild(row);
+      }
+    };
+
+    addBtn.addEventListener("click", () => {
+      const s = getSpline();
+      const last = s[s.length - 1];
+      const next = [...s, { x: Math.min(1, last.x + 0.1), y: last.y }];
+      next.sort((a, b) => a.x - b.x);
+      setSpline(next); render();
+    });
+
+    this.splineRerenders.push(render);
+    render();
+    return wrapper;
+  }
+
+  private buildAnchoredSection(
+    title: string,
+    getList: () => AnchoredSpline[],
+    setList: (l: AnchoredSpline[]) => void,
+  ): HTMLDivElement {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "border-bottom:1px solid #2a2a4a;";
+
+    const header = document.createElement("div");
+    header.style.cssText = "padding:6px 12px;background:#16213e;font-weight:bold;color:#e94560;cursor:pointer;";
+    header.textContent = "▼ " + title;
+    wrapper.appendChild(header);
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:6px 12px;";
+    wrapper.appendChild(body);
+
+    const list = document.createElement("div");
+    body.appendChild(list);
+
+    const addAnchor = document.createElement("div");
+    addAnchor.textContent = "+ Add anchor";
+    addAnchor.style.cssText = "margin-top:6px;color:#0f3460;cursor:pointer;font-size:0.7rem;";
+    body.appendChild(addAnchor);
+
+    let collapsed = false;
+    header.addEventListener("click", () => {
+      collapsed = !collapsed;
+      body.style.display = collapsed ? "none" : "block";
+      header.textContent = (collapsed ? "▶ " : "▼ ") + title;
+    });
+
+    const render = () => {
+      list.innerHTML = "";
+      const ls = getList();
+      for (let i = 0; i < ls.length; i++) {
+        const row = document.createElement("div");
+        row.style.cssText = "border:1px solid #333;border-radius:3px;padding:4px;margin-bottom:4px;";
+
+        const topBar = document.createElement("div");
+        topBar.style.cssText = "display:flex;gap:6px;align-items:center;margin-bottom:4px;";
+        const lbl = document.createElement("span");
+        lbl.textContent = "anchor:";
+        lbl.style.cssText = "font-size:0.7rem;color:#aaa;";
+        const anchIn = document.createElement("input");
+        anchIn.type = "number"; anchIn.step = "0.01";
+        anchIn.value = String(ls[i].anchor);
+        anchIn.style.cssText = "width:70px;background:#0f3460;color:#ccc;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:0.7rem;";
+
+        const del = document.createElement("span");
+        del.textContent = "Delete anchor";
+        del.style.cssText = "cursor:pointer;color:#e94560;font-size:0.65rem;margin-left:auto;";
+
+        anchIn.addEventListener("change", () => {
+          const next = getList().map((e, j) => j === i ? { ...e, anchor: Number(anchIn.value) } : e);
+          next.sort((a, b) => a.anchor - b.anchor);
+          setList(next); render();
+        });
+        del.addEventListener("click", () => {
+          const current = getList();
+          if (current.length <= 1) return;
+          setList(current.filter((_, j) => j !== i));
+          render();
+        });
+
+        topBar.appendChild(lbl); topBar.appendChild(anchIn); topBar.appendChild(del);
+        row.appendChild(topBar);
+
+        const sub = this.buildSplineSection(
+          "spline",
+          () => getList()[i].spline,
+          (s) => {
+            const next = getList().map((e, j) => j === i ? { ...e, spline: s } : e);
+            setList(next);
+          },
+        );
+        sub.style.marginTop = "0";
+        row.appendChild(sub);
+        list.appendChild(row);
+      }
+    };
+
+    addAnchor.addEventListener("click", () => {
+      const cur = getList();
+      const newAnchor = cur.length ? cur[cur.length - 1].anchor + 0.1 : 0;
+      const next: AnchoredSpline[] = [
+        ...cur,
+        { anchor: newAnchor, spline: [{ x: -1, y: 0 }, { x: 1, y: 0 }] },
+      ];
+      next.sort((a, b) => a.anchor - b.anchor);
+      setList(next); render();
+    });
+
+    this.splineRerenders.push(render);
+    render();
+    return wrapper;
+  }
+
   private setupDrag(panel: HTMLDivElement, handle: HTMLDivElement): void {
     let dragging = false;
     let offsetX = 0, offsetY = 0;
@@ -534,6 +737,7 @@ export class DebugPanel {
         valueSpan.textContent = val.toFixed(slider.decimals);
       }
     }
+    for (const r of this.splineRerenders) r();
   }
 
   private resetSection(section: SectionDef): void {

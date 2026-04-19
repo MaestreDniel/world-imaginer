@@ -26,6 +26,26 @@ interface SectionDef {
   toggle?: { key: string; label: string };
 }
 
+// ── Climate section factory ────────────────────────────────────────
+function climateSection(
+  id: string,
+  label: string,
+  subKey: string,
+  scaleMin: number,
+  scaleMax: number,
+  scaleStep: number,
+): SectionDef {
+  return {
+    id, label, paramsKey: "climate", subKey, expanded: false,
+    sliders: [
+      { key: "scale",       label: "Scale",       min: scaleMin, max: scaleMax, step: scaleStep, decimals: 0 },
+      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,   step: 1,    decimals: 0 },
+      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9, step: 0.01, decimals: 2 },
+      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,   step: 0.05, decimals: 2 },
+    ],
+  };
+}
+
 const SECTIONS: SectionDef[] = [
   {
     id: "erosion", label: "Erosion", paramsKey: "erosion", expanded: true,
@@ -102,33 +122,9 @@ const SECTIONS: SectionDef[] = [
       { key: "treeDensity",   label: "Tree Density Mult.", min: 0, max: 3, step: 0.05, decimals: 2 },
     ],
   },
-  {
-    id: "climate-cont", label: "Climate · Continentalness", paramsKey: "climate", subKey: "continentalness", expanded: false,
-    sliders: [
-      { key: "scale",       label: "Scale",       min: 200, max: 4000, step: 10,   decimals: 0 },
-      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
-      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
-      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
-    ],
-  },
-  {
-    id: "climate-ero", label: "Climate · Erosion", paramsKey: "climate", subKey: "erosion", expanded: false,
-    sliders: [
-      { key: "scale",       label: "Scale",       min: 100, max: 2000, step: 10,   decimals: 0 },
-      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
-      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
-      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
-    ],
-  },
-  {
-    id: "climate-pv", label: "Climate · Peaks & Valleys", paramsKey: "climate", subKey: "peaksValleys", expanded: false,
-    sliders: [
-      { key: "scale",       label: "Scale",       min: 40,  max: 600,  step: 5,    decimals: 0 },
-      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
-      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
-      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
-    ],
-  },
+  climateSection("climate-cont", "Climate · Continentalness", "continentalness", 200, 4000, 10),
+  climateSection("climate-ero",  "Climate · Erosion",         "erosion",         100, 2000, 10),
+  climateSection("climate-pv",   "Climate · Peaks & Valleys", "peaksValleys",     40,  600,  5),
   {
     id: "biome-climate", label: "Biome Thresholds", paramsKey: "shape", subKey: "biomeClimate", expanded: false,
     sliders: [

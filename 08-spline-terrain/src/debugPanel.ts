@@ -20,6 +20,7 @@ interface SectionDef {
   id: string;
   label: string;
   paramsKey: keyof GenerationParams;
+  subKey?: string;           // nested field inside params[paramsKey]
   expanded: boolean;
   sliders: SliderDef[];
   toggle?: { key: string; label: string };
@@ -37,6 +38,13 @@ const SECTIONS: SectionDef[] = [
       { key: "maxLifetime",     label: "Max Lifetime",     min: 10,   max: 200,  step: 1,     decimals: 0 },
       { key: "evaporationRate", label: "Evaporation Rate", min: 0,    max: 0.1,  step: 0.005, decimals: 3 },
       { key: "gravity",         label: "Gravity",          min: 1,    max: 30,   step: 1,     decimals: 0 },
+    ],
+  },
+  {
+    id: "extent", label: "World Extent", paramsKey: "extent", expanded: false,
+    sliders: [
+      { key: "minHeight", label: "Min Height", min: -128, max:   0, step: 1, decimals: 0 },
+      { key: "maxHeight", label: "Max Height", min:    0, max: 256, step: 1, decimals: 0 },
     ],
   },
   {
@@ -92,6 +100,43 @@ const SECTIONS: SectionDef[] = [
     sliders: [
       { key: "globalDensity", label: "Decoration Density", min: 0, max: 3, step: 0.05, decimals: 2 },
       { key: "treeDensity",   label: "Tree Density Mult.", min: 0, max: 3, step: 0.05, decimals: 2 },
+    ],
+  },
+  {
+    id: "climate-cont", label: "Climate · Continentalness", paramsKey: "climate", subKey: "continentalness", expanded: false,
+    sliders: [
+      { key: "scale",       label: "Scale",       min: 200, max: 4000, step: 10,   decimals: 0 },
+      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
+      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
+      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
+    ],
+  },
+  {
+    id: "climate-ero", label: "Climate · Erosion", paramsKey: "climate", subKey: "erosion", expanded: false,
+    sliders: [
+      { key: "scale",       label: "Scale",       min: 100, max: 2000, step: 10,   decimals: 0 },
+      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
+      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
+      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
+    ],
+  },
+  {
+    id: "climate-pv", label: "Climate · Peaks & Valleys", paramsKey: "climate", subKey: "peaksValleys", expanded: false,
+    sliders: [
+      { key: "scale",       label: "Scale",       min: 40,  max: 600,  step: 5,    decimals: 0 },
+      { key: "octaves",     label: "Octaves",     min: 1,   max: 6,    step: 1,    decimals: 0 },
+      { key: "persistence", label: "Persistence", min: 0.1, max: 0.9,  step: 0.01, decimals: 2 },
+      { key: "lacunarity",  label: "Lacunarity",  min: 1.5, max: 3,    step: 0.05, decimals: 2 },
+    ],
+  },
+  {
+    id: "biome-climate", label: "Biome Thresholds", paramsKey: "shape", subKey: "biomeClimate", expanded: false,
+    sliders: [
+      { key: "oceanContinentalness",  label: "Ocean Cont.",   min: -1,   max: 0,   step: 0.01, decimals: 2 },
+      { key: "coastContinentalness",  label: "Coast Cont.",   min: -0.5, max: 0.3, step: 0.01, decimals: 2 },
+      { key: "beachBand",             label: "Beach Band",    min: 0,    max: 10,  step: 1,    decimals: 0 },
+      { key: "inlandContinentalness", label: "Inland Cont.",  min: 0,    max: 0.8, step: 0.01, decimals: 2 },
+      { key: "mountainErosion",       label: "Mountain Ero.", min: -1,   max: 0,   step: 0.01, decimals: 2 },
     ],
   },
 ];
@@ -343,7 +388,7 @@ export class DebugPanel {
     }
 
     for (const slider of section.sliders) {
-      body.appendChild(this.buildSliderRow(section.paramsKey, slider));
+      body.appendChild(this.buildSliderRow(section.paramsKey, slider, section.subKey));
     }
 
     this.sectionBodies.set(section.id, body);
@@ -360,7 +405,7 @@ export class DebugPanel {
     return wrapper;
   }
 
-  private buildSliderRow(paramsKey: string, def: SliderDef): HTMLDivElement {
+  private buildSliderRow(paramsKey: string, def: SliderDef, subKey?: string): HTMLDivElement {
     const row = document.createElement("div");
     row.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;";
 
@@ -376,7 +421,9 @@ export class DebugPanel {
     input.min = String(def.min);
     input.max = String(def.max);
     input.step = String(def.step);
-    const currentVal = (this.params[paramsKey as keyof GenerationParams] as unknown as Record<string, number>)[def.key];
+    const topGroup = this.params[paramsKey as keyof GenerationParams] as unknown as Record<string, unknown>;
+    const group = subKey ? (topGroup[subKey] as Record<string, number>) : (topGroup as Record<string, number>);
+    const currentVal = group[def.key];
     input.value = String(currentVal);
     input.style.cssText = "width:90px;";
 
@@ -388,7 +435,7 @@ export class DebugPanel {
       valueSpan.textContent = Number(input.value).toFixed(def.decimals);
     });
 
-    const fullKey = `${paramsKey}.${def.key}`;
+    const fullKey = subKey ? `${paramsKey}.${subKey}.${def.key}` : `${paramsKey}.${def.key}`;
     this.sliderInputs.set(fullKey, input);
     this.sliderValues.set(fullKey, valueSpan);
 
@@ -452,13 +499,19 @@ export class DebugPanel {
 
   private readSlidersIntoParams(): void {
     for (const section of SECTIONS) {
-      const group = this.params[section.paramsKey] as unknown as Record<string, unknown>;
+      const topGroup = this.params[section.paramsKey] as unknown as Record<string, unknown>;
+      const group = section.subKey
+        ? (topGroup[section.subKey] as Record<string, unknown>)
+        : topGroup;
       if (section.toggle) {
         const checkbox = this.toggleInputs.get(`${section.paramsKey}.${section.toggle.key}`)!;
-        group[section.toggle.key] = checkbox.checked;
+        topGroup[section.toggle.key] = checkbox.checked;
       }
       for (const slider of section.sliders) {
-        const input = this.sliderInputs.get(`${section.paramsKey}.${slider.key}`)!;
+        const fullKey = section.subKey
+          ? `${section.paramsKey}.${section.subKey}.${slider.key}`
+          : `${section.paramsKey}.${slider.key}`;
+        const input = this.sliderInputs.get(fullKey)!;
         group[slider.key] = Number(input.value);
       }
     }
@@ -466,13 +519,18 @@ export class DebugPanel {
 
   private syncSlidersFromParams(): void {
     for (const section of SECTIONS) {
-      const group = this.params[section.paramsKey] as unknown as Record<string, unknown>;
+      const topGroup = this.params[section.paramsKey] as unknown as Record<string, unknown>;
+      const group = section.subKey
+        ? (topGroup[section.subKey] as Record<string, unknown>)
+        : topGroup;
       if (section.toggle) {
         const checkbox = this.toggleInputs.get(`${section.paramsKey}.${section.toggle.key}`)!;
-        checkbox.checked = group[section.toggle.key] as boolean;
+        checkbox.checked = topGroup[section.toggle.key] as boolean;
       }
       for (const slider of section.sliders) {
-        const fullKey = `${section.paramsKey}.${slider.key}`;
+        const fullKey = section.subKey
+          ? `${section.paramsKey}.${section.subKey}.${slider.key}`
+          : `${section.paramsKey}.${slider.key}`;
         const input = this.sliderInputs.get(fullKey)!;
         const valueSpan = this.sliderValues.get(fullKey)!;
         const val = group[slider.key] as number;

@@ -272,8 +272,6 @@ export function classifyBiome(
 
 export const BLEND_RADIUS = 4;
 
-const BIOME_COUNT = Object.keys(Biome).length;
-
 /**
  * Blended grass colors + dominant biome per column. Height is no longer
  * biome-driven, so only grass-color blending remains.
@@ -330,7 +328,6 @@ export function computeBlendedGrassColors(
     }
   }
 
-  void BIOME_COUNT; // silence unused warning if applicable
   return { dominantBiomes, grassColors };
 }
 

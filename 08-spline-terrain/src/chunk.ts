@@ -2,6 +2,7 @@ import { Block, BLOCK_DEFS } from "./blocks";
 import { createNoise } from "./perlin";
 import {
   createBiomeSampler, BIOME_DEFS, Biome, classifyBiome, computeBlendedGrassColors,
+  type BiomeId,
 } from "./biomes";
 import { createTerrainShaper } from "./terrainShape";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
@@ -82,13 +83,12 @@ export function generateChunk(
       const wx = worldXOff + lx;
       const wz = worldZOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
-      const h = terrainShaper.heightAt(wx, wz);
+      const sample = terrainShaper.sampleClimate(wx, wz);
+      const h = terrainShaper.heightFromClimate(sample);
       heights[idx] = h;
-
-      const { continentalness, erosion } = terrainShaper.sampleClimate(wx, wz);
       const { temp, humid } = tempHumidSampler(wx, wz);
       biomes[idx] = classifyBiome(
-        continentalness, erosion, temp, humid,
+        sample.continentalness, sample.erosion, temp, humid,
         h, waterLevel, config.params.shape.biomeClimate,
       );
     }
@@ -97,7 +97,7 @@ export function generateChunk(
   const { grassColors } = computeBlendedGrassColors(
     worldXOff, worldZOff, CHUNK_SIZE,
     tempHumidSampler,
-    (lx, lz) => biomes[lz * CHUNK_SIZE + lx] as import("./biomes").BiomeId,
+    (lx, lz) => biomes[lz * CHUNK_SIZE + lx] as BiomeId,
   );
 
   // ── River channels from Voronoi edges ────────────────────────────

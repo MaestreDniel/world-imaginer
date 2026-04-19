@@ -615,6 +615,9 @@ export class DebugPanel {
           const raw = data.params ?? {};
           const params: GenerationParams = {
             terrain:  { ...DEFAULT_PARAMS.terrain,  ...(raw.terrain  ?? {}) },
+            climate:  { ...DEFAULT_PARAMS.climate,  ...(raw.climate  ?? {}) },
+            shape:    { ...DEFAULT_PARAMS.shape,    ...(raw.shape    ?? {}) },
+            extent:   { ...DEFAULT_PARAMS.extent,   ...(raw.extent   ?? {}) },
             erosion:  { ...DEFAULT_PARAMS.erosion,  ...(raw.erosion  ?? {}) },
             caves:    { ...DEFAULT_PARAMS.caves,    ...(raw.caves    ?? {}) },
             aquifers: { ...DEFAULT_PARAMS.aquifers, ...(raw.aquifers ?? {}) },

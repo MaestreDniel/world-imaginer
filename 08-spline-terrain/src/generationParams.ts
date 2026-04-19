@@ -1,4 +1,6 @@
 import { type ErosionConfig, DEFAULT_EROSION } from "./erosion";
+import { type ClimateParams, DEFAULT_CLIMATE } from "./climate";
+import { type TerrainShape, DEFAULT_TERRAIN_SHAPE } from "./splines";
 
 // ── Terrain noise ──────────────────────────────────────────────────
 export interface TerrainParams {
@@ -85,8 +87,34 @@ export interface ErosionParams {
   gravity: number;
 }
 
+export interface BiomeClimateThresholds {
+  /** continentalness below this -> Ocean. */
+  oceanContinentalness: number;
+  /** continentalness below this (plus near water) -> Beach. */
+  coastContinentalness: number;
+  /** Height above waterLevel within which a low-continentalness column becomes Beach. */
+  beachBand: number;
+  /** continentalness above this -> eligible for Mountains (combined with low erosion). */
+  inlandContinentalness: number;
+  /** Erosion below this (on inland columns) -> Mountains. */
+  mountainErosion: number;
+}
+
+export interface WorldExtentParams {
+  minHeight: number;
+  maxHeight: number;
+}
+
+export interface TerrainShapeParams {
+  shape: TerrainShape;
+  biomeClimate: BiomeClimateThresholds;
+}
+
 export interface GenerationParams {
   terrain: TerrainParams;
+  climate: ClimateParams;
+  shape: TerrainShapeParams;
+  extent: WorldExtentParams;
   erosion: ErosionParams;
   caves: CaveParams;
   aquifers: AquiferParams;
@@ -105,6 +133,21 @@ export const DEFAULT_PARAMS: GenerationParams = {
     warpStrength: 2.4,
     warpIterations: 1,
     heightMultiplier: 55,
+  },
+  climate: DEFAULT_CLIMATE,
+  shape: {
+    shape: DEFAULT_TERRAIN_SHAPE,
+    biomeClimate: {
+      oceanContinentalness:   -0.25,
+      coastContinentalness:   -0.05,
+      beachBand:               3,
+      inlandContinentalness:   0.2,
+      mountainErosion:        -0.4,
+    },
+  },
+  extent: {
+    minHeight: -48,
+    maxHeight: 120,
   },
   erosion: {
     enabled: false,

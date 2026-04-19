@@ -357,7 +357,7 @@ export function generateChunk(
   // Absolute impassable bottom: wy = BEDROCK_BOTTOM is 100% bedrock,
   // wy up to BEDROCK_BOTTOM+2 is stochastically bedrock (jagged top).
   // Runs last so it overrides caves, aquifers, lava, and glowstone.
-  const BEDROCK_BOTTOM = -32;
+  const BEDROCK_BOTTOM = config.params.extent.minHeight;
   const BEDROCK_FUZZY_HEIGHT = 2;
   if (worldYOff <= BEDROCK_BOTTOM + BEDROCK_FUZZY_HEIGHT && worldYOff + CHUNK_SIZE > BEDROCK_BOTTOM) {
     for (let ly = 0; ly < CHUNK_SIZE; ly++) {

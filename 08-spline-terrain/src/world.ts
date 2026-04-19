@@ -137,8 +137,9 @@ export class World {
     const ccx = Math.floor(worldPos.x / CHUNK_SIZE);
     const ccz = Math.floor(worldPos.z / CHUNK_SIZE);
 
-    const minCY = -2;
-    const maxCY = 4;
+    const { minHeight, maxHeight } = this.config.params.extent;
+    const minCY = Math.floor(minHeight / CHUNK_SIZE) - 1;
+    const maxCY = Math.ceil(maxHeight / CHUNK_SIZE) + 1;
 
     const needed = new Set<string>();
     for (let cy = minCY; cy <= maxCY; cy++) {

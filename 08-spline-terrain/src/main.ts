@@ -226,7 +226,7 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => keysDown.delete(e.key.toLowerCase()));
 
 function handleFlyMovement(): void {
-  const speed = 1.5;
+  const speed = 1;
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   forward.y = 0;

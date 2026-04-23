@@ -6,11 +6,17 @@ import { createBiomeSampler, createBiomeDebugSampler, BIOME_DEFS } from "./biome
 import { WalkController, CAMERA_HEIGHT } from "./walkController";
 import { DEFAULT_PARAMS, cloneParams, type GenerationParams } from "./generationParams";
 import { DebugPanel } from "./debugPanel";
+import {
+  createDayNightState,
+  tickDayNight,
+  sharedDayNightUniforms,
+  type DayNightState,
+} from "./dayNight";
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7EC8E3);
-scene.fog = new THREE.Fog(0x7EC8E3, 0, 1); // placeholder — set by updateFog()
+scene.fog = new THREE.Fog(0x7EC8E3, 0, 1); // color overwritten each frame by dayNight; near/far by updateFog()
 
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.5, 1); // far set by updateFog()
 camera.position.set(CHUNK_SIZE * 0, 8, CHUNK_SIZE * 0);
@@ -64,8 +70,9 @@ loadAndPlay(15000);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(80, 120, 40);
 scene.add(dirLight);
+
+const dayNightState: DayNightState = createDayNightState();
 
 // ── Controls ─────────────────────────────────────────────────────────────────
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -263,6 +270,15 @@ function animate(timestamp: number) {
   const dt = Math.min((timestamp - prevTime) / 1000, 0.1);
   prevTime      = timestamp;
   lastFrameTime = timestamp;
+
+  const frame = tickDayNight(dayNightState, dt);
+  sharedDayNightUniforms.uTimeOfDay.value = frame.skyLightFactor;
+  dirLight.position.copy(frame.sunDir).multiplyScalar(200);
+  dirLight.intensity = frame.sunIntensity;
+  ambientLight.intensity = frame.ambientIntensity;
+  ambientLight.color.copy(frame.ambientColor);
+  scene.background = frame.clearColor;
+  (scene.fog as THREE.Fog).color.copy(frame.clearColor);
 
   if (mode === "fly") {
     handleFlyMovement();

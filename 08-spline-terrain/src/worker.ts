@@ -37,6 +37,8 @@ export interface WorkerResponse {
   empty: boolean;
   blockData: Uint8Array;
   grassColors: Uint32Array;
+  sky:   Uint8Array;
+  block: Uint8Array;
 }
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
@@ -59,7 +61,12 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return data[chunkIndex(lx, ly, lz)];
   };
 
-  const mesh = buildChunkMesh(data, getNeighbor, grassColors, lightData);
+  // Task 2 transitional — mesher still takes a single buffer. Task 3 swaps this out.
+  const combined = new Uint8Array(lightData.sky.length);
+  for (let i = 0; i < combined.length; i++) {
+    combined[i] = Math.max(lightData.sky[i], lightData.block[i]);
+  }
+  const mesh = buildChunkMesh(data, getNeighbor, grassColors, combined);
 
   if (mesh.indices.length === 0) {
     const resp: WorkerResponse = {
@@ -72,8 +79,12 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       empty: true,
       blockData: data,
       grassColors,
+      sky:   lightData.sky,
+      block: lightData.block,
     };
-    self.postMessage(resp, { transfer: [data.buffer, grassColors.buffer] });
+    self.postMessage(resp, {
+      transfer: [data.buffer, grassColors.buffer, lightData.sky.buffer, lightData.block.buffer],
+    });
     return;
   }
 
@@ -89,6 +100,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     empty: false,
     blockData: data,
     grassColors,
+    sky:   lightData.sky,
+    block: lightData.block,
   };
 
   self.postMessage(resp, {
@@ -100,6 +113,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       indices.buffer,
       data.buffer,
       grassColors.buffer,
+      lightData.sky.buffer,
+      lightData.block.buffer,
     ],
   });
 };

@@ -93,36 +93,36 @@ export function deriveFrame(state: DayNightState): DayNightFrame {
   const angle = state.t * Math.PI * 2;
   scratchSunDir.set(Math.cos(angle), Math.sin(angle), 0.3).normalize();
 
-  // Color palette interpolation.
-  // Segments: [0, 0.125) night→dawn, [0.125, 0.25) dawn→day,
-  //           [0.25, 0.5) day, [0.5, 0.575) day→dusk,
-  //           [0.575, 0.7) dusk→night, [0.7, 1) night.
-  if (state.t < 0.125) {
-    const u = state.t / 0.125;
-    lerpColor(scratchAmbient, COLOR_NIGHT_AMBIENT, COLOR_DAWN_AMBIENT, u);
-    lerpColor(scratchClear,   COLOR_NIGHT_SKY,     COLOR_DAWN_SKY,     u);
-  } else if (state.t < 0.25) {
-    const u = (state.t - 0.125) / 0.125;
-    lerpColor(scratchAmbient, COLOR_DAWN_AMBIENT, COLOR_DAY_AMBIENT, u);
-    lerpColor(scratchClear,   COLOR_DAWN_SKY,     COLOR_DAY_SKY,     u);
-  } else if (state.t < 0.5) {
+  // One palette segment per phase; dawn and dusk pass through a warm mid-color.
+  if (state.t < DAWN_END) {
+    const u = state.t / DAWN_END;
+    if (u < 0.5) {
+      lerpColor(scratchAmbient, COLOR_NIGHT_AMBIENT, COLOR_DAWN_AMBIENT, u * 2);
+      lerpColor(scratchClear,   COLOR_NIGHT_SKY,     COLOR_DAWN_SKY,     u * 2);
+    } else {
+      lerpColor(scratchAmbient, COLOR_DAWN_AMBIENT, COLOR_DAY_AMBIENT, (u - 0.5) * 2);
+      lerpColor(scratchClear,   COLOR_DAWN_SKY,     COLOR_DAY_SKY,     (u - 0.5) * 2);
+    }
+  } else if (state.t < DAY_END) {
     scratchAmbient.copy(COLOR_DAY_AMBIENT);
     scratchClear.copy(COLOR_DAY_SKY);
-  } else if (state.t < 0.575) {
-    const u = (state.t - 0.5) / 0.075;
-    lerpColor(scratchAmbient, COLOR_DAY_AMBIENT, COLOR_DUSK_AMBIENT, u);
-    lerpColor(scratchClear,   COLOR_DAY_SKY,     COLOR_DUSK_SKY,     u);
-  } else if (state.t < 0.7) {
-    const u = (state.t - 0.575) / 0.125;
-    lerpColor(scratchAmbient, COLOR_DUSK_AMBIENT, COLOR_NIGHT_AMBIENT, u);
-    lerpColor(scratchClear,   COLOR_DUSK_SKY,     COLOR_NIGHT_SKY,     u);
+  } else if (state.t < DUSK_END) {
+    const u = (state.t - DAY_END) / (DUSK_END - DAY_END);
+    if (u < 0.5) {
+      lerpColor(scratchAmbient, COLOR_DAY_AMBIENT, COLOR_DUSK_AMBIENT, u * 2);
+      lerpColor(scratchClear,   COLOR_DAY_SKY,     COLOR_DUSK_SKY,     u * 2);
+    } else {
+      lerpColor(scratchAmbient, COLOR_DUSK_AMBIENT, COLOR_NIGHT_AMBIENT, (u - 0.5) * 2);
+      lerpColor(scratchClear,   COLOR_DUSK_SKY,     COLOR_NIGHT_SKY,     (u - 0.5) * 2);
+    }
   } else {
     scratchAmbient.copy(COLOR_NIGHT_AMBIENT);
     scratchClear.copy(COLOR_NIGHT_SKY);
   }
 
-  const hours = Math.floor(state.t * 24);
-  const minutes = Math.floor((state.t * 24 - hours) * 60);
+  const clockT = (state.t + 0.25) % 1;
+  const hours = Math.floor(clockT * 24);
+  const minutes = Math.floor((clockT * 24 - hours) * 60);
   const clockLabel = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 
   return {

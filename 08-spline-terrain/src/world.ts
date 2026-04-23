@@ -82,9 +82,9 @@ export class World {
        varying float vLightFactor;`,
         )
         .replace(
-          "#include <dithering_fragment>",
+          "#include <tonemapping_fragment>",
           `gl_FragColor.rgb *= vLightFactor;
-       #include <dithering_fragment>`,
+       #include <tonemapping_fragment>`,
         );
     };
 

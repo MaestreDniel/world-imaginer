@@ -1,5 +1,6 @@
 import { CHUNK_SIZE, chunkIndex, type ChunkData } from "./chunk";
 import { BLOCK_DEFS, Block, ATLAS_COLS, ATLAS_ROWS, ATLAS_TILE_SIZE, ATLAS_TILE_PAD, ATLAS_TILE_PADDED } from "./blocks";
+import type { ChunkLightData } from "./lighting";
 
 /**
  * Per-face quad emitter — replaces the greedy mesher.
@@ -15,6 +16,8 @@ export interface MeshData {
   normals:   number[];
   colors:    number[];
   uvs:       number[];   // 2 floats per vertex (u, v)
+  skyLight:   number[];  // 1 float per vertex, 0..15
+  blockLight: number[];  // 1 float per vertex, 0..15
   indices:   number[];
 }
 
@@ -66,12 +69,14 @@ export function buildChunkMesh(
   data: ChunkData,
   getNeighbor: NeighborLookup,
   grassColors: Uint32Array,
-  lightData: Uint8Array | null,
+  lightData: ChunkLightData | null,
 ): MeshData {
   const positions: number[] = [];
   const normals:   number[] = [];
   const colors:    number[] = [];
   const uvs:       number[] = [];
+  const skyLight:   number[] = [];
+  const blockLight: number[] = [];
   const indices:   number[] = [];
 
   // Six face directions: [axis, sign]
@@ -104,11 +109,13 @@ export function buildChunkMesh(
         const v0 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasH + htV;
         const v1 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasH - htV;
 
-        // Light from this cell (sprite occupies an air voxel that retained its light value).
-        let lightLevel = 15;
-        if (lightData) lightLevel = Math.max(lightData[chunkIndex(x, y, z)], def.lightEmit);
-        const lightFactor = 0.2 + (lightLevel / 15) * 0.8;
-        const r = lightFactor, g = lightFactor, b = lightFactor;
+        let spriteSky = 15;
+        let spriteBlock = def.lightEmit;
+        if (lightData) {
+          spriteSky   = lightData.sky[chunkIndex(x, y, z)];
+          spriteBlock = Math.max(lightData.block[chunkIndex(x, y, z)], def.lightEmit);
+        }
+        const r = 1, g = 1, b = 1;
 
         // Two quads, NW↔SE and NE↔SW. Material uses side: DoubleSide so
         // a single winding renders both faces.
@@ -142,6 +149,8 @@ export function buildChunkMesh(
             positions.push(q.corners[k][0], q.corners[k][1], q.corners[k][2]);
             normals.push(q.nx, 0, q.nz);
             colors.push(r, g, b);
+            skyLight.push(spriteSky);
+            blockLight.push(spriteBlock);
             uvs.push(uvc[k][0], uvc[k][1]);
           }
           indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
@@ -224,7 +233,8 @@ export function buildChunkMesh(
             axis === 0 ? 0.7 : 0.8;
 
           // ── Light level (from the air-side voxel of this face) ───────────
-          let lightLevel = 15;
+          let faceSky = 15;
+          let faceBlock = def.lightEmit;
           if (lightData) {
             const lp = [pos[0], pos[1], pos[2]];
             lp[axis] += dir;
@@ -233,15 +243,15 @@ export function buildChunkMesh(
               lp[1] >= 0 && lp[1] < CHUNK_SIZE &&
               lp[2] >= 0 && lp[2] < CHUNK_SIZE
             ) {
-              lightLevel = lightData[chunkIndex(lp[0], lp[1], lp[2])];
+              const nIdx = chunkIndex(lp[0], lp[1], lp[2]);
+              faceSky   = lightData.sky[nIdx];
+              faceBlock = Math.max(lightData.block[nIdx], def.lightEmit);
             }
-            lightLevel = Math.max(lightLevel, def.lightEmit);
           }
-          const lightFactor = 0.2 + (lightLevel / 15) * 0.8;
 
-          const baseR = r * shade * lightFactor;
-          const baseG = g * shade * lightFactor;
-          const baseB = b * shade * lightFactor;
+          const baseR = r * shade;
+          const baseG = g * shade;
+          const baseB = b * shade;
 
           // ── Quad geometry ────────────────────────────────────────────────
           const corner = [0, 0, 0];
@@ -310,6 +320,8 @@ export function buildChunkMesh(
             positions.push(qc[k][0], qc[k][1], qc[k][2]);
             normals.push(normal[0], normal[1], normal[2]);
             colors.push(baseR * aoFactors[k], baseG * aoFactors[k], baseB * aoFactors[k]);
+            skyLight.push(faceSky);
+            blockLight.push(faceBlock);
             uvs.push(uvc[k][0], uvc[k][1]);
           }
 
@@ -335,5 +347,5 @@ export function buildChunkMesh(
     }
   }
 
-  return { positions, normals, colors, uvs, indices };
+  return { positions, normals, colors, uvs, skyLight, blockLight, indices };
 }

@@ -3,6 +3,7 @@ import { CHUNK_SIZE, chunkIndex, type WorldConfig, DEFAULT_CONFIG } from "./chun
 import { BLOCK_DEFS } from "./blocks";
 import { buildAtlasTexture } from "./textureAtlas";
 import type { WorkerRequest, WorkerResponse } from "./worker";
+import { sharedDayNightUniforms } from "./dayNight";
 
 /**
  * 3D world manager — optimised with Web Workers.
@@ -57,6 +58,36 @@ export class World {
       side: THREE.DoubleSide,
     });
 
+    this.material.onBeforeCompile = (shader) => {
+      shader.uniforms.uTimeOfDay = sharedDayNightUniforms.uTimeOfDay;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+       attribute float aSkyLight;
+       attribute float aBlockLight;
+       uniform float uTimeOfDay;
+       varying float vLightFactor;`,
+        )
+        .replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
+       float _combined = max(aBlockLight, aSkyLight * uTimeOfDay);
+       vLightFactor = 0.2 + (_combined / 15.0) * 0.8;`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          `#include <common>
+       varying float vLightFactor;`,
+        )
+        .replace(
+          "#include <dithering_fragment>",
+          `gl_FragColor.rgb *= vLightFactor;
+       #include <dithering_fragment>`,
+        );
+    };
+
     // Spawn worker pool
     const count = Math.min(navigator.hardwareConcurrency || 4, 8);
     for (let i = 0; i < count; i++) {
@@ -91,10 +122,12 @@ export class World {
       });
     } else {
       const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute("position", new THREE.Float32BufferAttribute(resp.positions, 3));
-      geometry.setAttribute("normal", new THREE.Float32BufferAttribute(resp.normals, 3));
-      geometry.setAttribute("color", new THREE.Float32BufferAttribute(resp.colors, 3));
-      geometry.setAttribute("uv", new THREE.Float32BufferAttribute(resp.uvs, 2));
+      geometry.setAttribute("position",    new THREE.Float32BufferAttribute(resp.positions, 3));
+      geometry.setAttribute("normal",      new THREE.Float32BufferAttribute(resp.normals, 3));
+      geometry.setAttribute("color",       new THREE.Float32BufferAttribute(resp.colors, 3));
+      geometry.setAttribute("uv",          new THREE.Float32BufferAttribute(resp.uvs, 2));
+      geometry.setAttribute("aSkyLight",   new THREE.Float32BufferAttribute(resp.skyLightAttr, 1));
+      geometry.setAttribute("aBlockLight", new THREE.Float32BufferAttribute(resp.blockLightAttr, 1));
       geometry.setIndex(new THREE.Uint32BufferAttribute(resp.indices, 1));
 
       const mesh = new THREE.Mesh(geometry, this.material);

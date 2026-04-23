@@ -39,6 +39,8 @@ export interface WorkerResponse {
   grassColors: Uint32Array;
   sky:   Uint8Array;
   block: Uint8Array;
+  skyLightAttr:   Float32Array;
+  blockLightAttr: Float32Array;
 }
 
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
@@ -61,12 +63,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     return data[chunkIndex(lx, ly, lz)];
   };
 
-  // Task 2 transitional — mesher still takes a single buffer. Task 3 swaps this out.
-  const combined = new Uint8Array(lightData.sky.length);
-  for (let i = 0; i < combined.length; i++) {
-    combined[i] = Math.max(lightData.sky[i], lightData.block[i]);
-  }
-  const mesh = buildChunkMesh(data, getNeighbor, grassColors, combined);
+  const mesh = buildChunkMesh(data, getNeighbor, grassColors, lightData);
 
   if (mesh.indices.length === 0) {
     const resp: WorkerResponse = {
@@ -81,6 +78,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       grassColors,
       sky:   lightData.sky,
       block: lightData.block,
+      skyLightAttr:   new Float32Array(0),
+      blockLightAttr: new Float32Array(0),
     };
     self.postMessage(resp, {
       transfer: [data.buffer, grassColors.buffer, lightData.sky.buffer, lightData.block.buffer],
@@ -93,6 +92,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const colors    = new Float32Array(mesh.colors);
   const uvs       = new Float32Array(mesh.uvs);
   const indices   = new Uint32Array(mesh.indices);
+  const skyLightAttr   = new Float32Array(mesh.skyLight);
+  const blockLightAttr = new Float32Array(mesh.blockLight);
 
   const resp: WorkerResponse = {
     id, cx, cy, cz,
@@ -102,6 +103,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     grassColors,
     sky:   lightData.sky,
     block: lightData.block,
+    skyLightAttr,
+    blockLightAttr,
   };
 
   self.postMessage(resp, {
@@ -111,6 +114,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       colors.buffer,
       uvs.buffer,
       indices.buffer,
+      skyLightAttr.buffer,
+      blockLightAttr.buffer,
       data.buffer,
       grassColors.buffer,
       lightData.sky.buffer,

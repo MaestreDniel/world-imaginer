@@ -235,9 +235,12 @@ export class DebugPanel {
 
   attachDayNight(state: DayNightState): void {
     this.dayNightState = state;
-    if (this.dnTimeSlider)    this.dnTimeSlider.value    = state.t.toFixed(3);
-    if (this.dnCycleSlider)   this.dnCycleSlider.value   = String(state.cycleLengthSeconds);
+    if (this.dnTimeSlider)     this.dnTimeSlider.value     = state.t.toFixed(3);
+    if (this.dnTimeLabel)      this.dnTimeLabel.textContent = state.t.toFixed(3);
+    if (this.dnCycleSlider)    this.dnCycleSlider.value    = String(state.cycleLengthSeconds);
+    if (this.dnCycleLabel)     this.dnCycleLabel.textContent = String(state.cycleLengthSeconds);
     if (this.dnNightMinSlider) this.dnNightMinSlider.value = String(state.nightMin);
+    if (this.dnNightMinLabel)  this.dnNightMinLabel.textContent = String(state.nightMin);
     if (this.dnPauseCheckbox)  this.dnPauseCheckbox.checked = state.paused;
   }
 

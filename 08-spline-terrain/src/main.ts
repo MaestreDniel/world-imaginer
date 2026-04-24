@@ -122,6 +122,7 @@ const debugPanel = new DebugPanel(currentParams, (newParams, randomizeSeed) => {
   }
   rebuildWorld();
 });
+debugPanel.attachDayNight(dayNightState);
 
 const paramsToggleBtn = document.getElementById("params-toggle") as HTMLButtonElement;
 paramsToggleBtn.addEventListener("click", () => { debugPanel.toggle(); paramsToggleBtn.blur(); });
@@ -279,6 +280,7 @@ function animate(timestamp: number) {
   ambientLight.color.copy(frame.ambientColor);
   (scene.background as THREE.Color).copy(frame.clearColor);
   (scene.fog as THREE.Fog).color.copy(frame.clearColor);
+  debugPanel.updateDayNightReadout(frame);
 
   if (mode === "fly") {
     handleFlyMovement();

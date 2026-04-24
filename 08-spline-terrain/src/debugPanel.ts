@@ -6,6 +6,7 @@ import {
   cloneParams,
 } from "./generationParams";
 import type { Spline, AnchoredSpline } from "./splines";
+import type { DayNightState, DayNightFrame } from "./dayNight";
 
 // ── Slider definition metadata ─────────────────────────────────────
 interface SliderDef {
@@ -200,6 +201,16 @@ export class DebugPanel {
   private visible = false;
   private minimized = false;
   private splineRerenders: Array<() => void> = [];
+  private dayNightState: DayNightState | null = null;
+  private dnTimeSlider:   HTMLInputElement | null = null;
+  private dnTimeLabel:    HTMLSpanElement | null = null;
+  private dnCycleSlider:  HTMLInputElement | null = null;
+  private dnCycleLabel:   HTMLSpanElement | null = null;
+  private dnNightMinSlider: HTMLInputElement | null = null;
+  private dnNightMinLabel:  HTMLSpanElement | null = null;
+  private dnPauseCheckbox: HTMLInputElement | null = null;
+  private dnPhaseReadout:  HTMLSpanElement | null = null;
+  private dnDraggingTime = false;
 
   constructor(params: GenerationParams, onApply: (params: GenerationParams, randomizeSeed: boolean) => void) {
     this.params = cloneParams(params);
@@ -220,6 +231,23 @@ export class DebugPanel {
   setParams(p: GenerationParams): void {
     this.params = cloneParams(p);
     this.syncSlidersFromParams();
+  }
+
+  attachDayNight(state: DayNightState): void {
+    this.dayNightState = state;
+    if (this.dnTimeSlider)    this.dnTimeSlider.value    = state.t.toFixed(3);
+    if (this.dnCycleSlider)   this.dnCycleSlider.value   = String(state.cycleLengthSeconds);
+    if (this.dnNightMinSlider) this.dnNightMinSlider.value = String(state.nightMin);
+    if (this.dnPauseCheckbox)  this.dnPauseCheckbox.checked = state.paused;
+  }
+
+  updateDayNightReadout(frame: DayNightFrame): void {
+    if (!this.dayNightState) return;
+    if (this.dnTimeLabel)    this.dnTimeLabel.textContent = this.dayNightState.t.toFixed(3);
+    if (this.dnPhaseReadout) this.dnPhaseReadout.textContent = `${frame.phase} · ${frame.clockLabel}`;
+    if (!this.dnDraggingTime && this.dnTimeSlider) {
+      this.dnTimeSlider.value = this.dayNightState.t.toFixed(3);
+    }
   }
 
   private build(): HTMLDivElement {
@@ -315,6 +343,7 @@ export class DebugPanel {
     applyBtn.addEventListener("mouseenter", () => { applyBtn.style.background = "#c73e54"; });
     applyBtn.addEventListener("mouseleave", () => { applyBtn.style.background = "#e94560"; });
     applyRow.appendChild(applyBtn);
+    body.appendChild(this.buildDayNightSection());
     body.appendChild(applyRow);
 
     panel.appendChild(body);
@@ -643,6 +672,97 @@ export class DebugPanel {
     this.splineRerenders.push(render);
     render();
     return wrapper;
+  }
+
+  private buildDayNightSection(): HTMLDivElement {
+    const section = document.createElement("div");
+    section.style.cssText = "border-bottom:1px solid #2a2a4a;";
+
+    const header = document.createElement("div");
+    header.style.cssText = `
+      padding:8px 12px; background:#16213e; cursor:pointer; display:flex;
+      justify-content:space-between; align-items:center; font-weight:bold;
+    `;
+    const headerLabel = document.createElement("span");
+    headerLabel.textContent = "Day / Night";
+    this.dnPhaseReadout = document.createElement("span");
+    this.dnPhaseReadout.style.cssText = "color:#aaa;font-weight:normal;font-size:0.7rem;";
+    this.dnPhaseReadout.textContent = "–";
+    header.appendChild(headerLabel);
+    header.appendChild(this.dnPhaseReadout);
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:8px 12px;display:none;";
+
+    header.addEventListener("click", () => {
+      body.style.display = body.style.display === "none" ? "block" : "none";
+    });
+
+    // Row helper — mirrors the slider style used by the existing sections.
+    const addSlider = (
+      label: string, min: number, max: number, step: number, initial: number,
+      onInput: (v: number) => void,
+    ): { input: HTMLInputElement; valueLabel: HTMLSpanElement } => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:6px;margin:4px 0;";
+      const lbl = document.createElement("span");
+      lbl.style.cssText = "flex:0 0 85px;color:#aaa;";
+      lbl.textContent = label;
+      const input = document.createElement("input");
+      input.type = "range";
+      input.min = String(min); input.max = String(max); input.step = String(step);
+      input.value = String(initial);
+      input.style.cssText = "flex:1;";
+      const valueLabel = document.createElement("span");
+      valueLabel.style.cssText = "flex:0 0 45px;text-align:right;color:#e94560;";
+      valueLabel.textContent = String(initial);
+      input.addEventListener("input", () => {
+        const v = Number(input.value);
+        valueLabel.textContent = input.value;
+        onInput(v);
+      });
+      row.appendChild(lbl); row.appendChild(input); row.appendChild(valueLabel);
+      body.appendChild(row);
+      return { input, valueLabel };
+    };
+
+    const cycle = addSlider("Cycle (s)", 30, 600, 5, 120, (v) => {
+      if (this.dayNightState) this.dayNightState.cycleLengthSeconds = v;
+    });
+    this.dnCycleSlider = cycle.input;
+    this.dnCycleLabel  = cycle.valueLabel;
+
+    const timeRow = addSlider("Time", 0, 0.999, 0.001, 0.25, (v) => {
+      if (this.dayNightState) this.dayNightState.t = v;
+    });
+    this.dnTimeSlider = timeRow.input;
+    this.dnTimeLabel  = timeRow.valueLabel;
+    this.dnTimeSlider.addEventListener("pointerdown", () => { this.dnDraggingTime = true; });
+    this.dnTimeSlider.addEventListener("pointerup",   () => { this.dnDraggingTime = false; });
+    this.dnTimeSlider.addEventListener("pointercancel", () => { this.dnDraggingTime = false; });
+
+    const floor = addSlider("Night floor", 0, 15, 1, 4, (v) => {
+      if (this.dayNightState) this.dayNightState.nightMin = v;
+    });
+    this.dnNightMinSlider = floor.input;
+    this.dnNightMinLabel  = floor.valueLabel;
+
+    const pauseRow = document.createElement("label");
+    pauseRow.style.cssText = "display:flex;align-items:center;gap:6px;margin:6px 0;color:#aaa;cursor:pointer;";
+    this.dnPauseCheckbox = document.createElement("input");
+    this.dnPauseCheckbox.type = "checkbox";
+    this.dnPauseCheckbox.addEventListener("change", () => {
+      if (this.dayNightState && this.dnPauseCheckbox) {
+        this.dayNightState.paused = this.dnPauseCheckbox.checked;
+      }
+    });
+    pauseRow.appendChild(this.dnPauseCheckbox);
+    pauseRow.appendChild(document.createTextNode("Paused"));
+    body.appendChild(pauseRow);
+
+    section.appendChild(header);
+    section.appendChild(body);
+    return section;
   }
 
   private setupDrag(panel: HTMLDivElement, handle: HTMLDivElement): void {

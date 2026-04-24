@@ -277,7 +277,7 @@ function animate(timestamp: number) {
   dirLight.intensity = frame.sunIntensity;
   ambientLight.intensity = frame.ambientIntensity;
   ambientLight.color.copy(frame.ambientColor);
-  scene.background = frame.clearColor;
+  (scene.background as THREE.Color).copy(frame.clearColor);
   (scene.fog as THREE.Fog).color.copy(frame.clearColor);
 
   if (mode === "fly") {

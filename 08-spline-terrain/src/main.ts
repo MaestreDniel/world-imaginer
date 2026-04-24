@@ -276,8 +276,8 @@ function animate(timestamp: number) {
   sharedDayNightUniforms.uTimeOfDay.value = frame.skyLightFactor;
   dirLight.position.copy(frame.sunDir).multiplyScalar(200);
   dirLight.intensity = frame.sunIntensity;
+  dirLight.color.copy(frame.sunColor);
   ambientLight.intensity = frame.ambientIntensity;
-  ambientLight.color.copy(frame.ambientColor);
   (scene.background as THREE.Color).copy(frame.clearColor);
   (scene.fog as THREE.Fog).color.copy(frame.clearColor);
   debugPanel.updateDayNightReadout(frame);

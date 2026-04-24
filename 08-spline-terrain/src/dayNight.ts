@@ -18,8 +18,8 @@ export interface DayNightFrame {
   skyLightFactor: number;     // [nightMin/15, 1]
   sunDir: THREE.Vector3;      // unit vector
   sunIntensity: number;
+  sunColor: THREE.Color;      // palette-tinted, applied to DirectionalLight
   ambientIntensity: number;
-  ambientColor: THREE.Color;
   clearColor: THREE.Color;
   phase: Phase;
   clockLabel: string;         // cosmetic HH:MM
@@ -55,10 +55,13 @@ function lerpColor(out: THREE.Color, a: THREE.Color, b: THREE.Color, t: number):
 }
 
 // Palette — indexed by phase center, interpolated at transitions.
-const COLOR_DAWN_AMBIENT  = new THREE.Color(0xffc18a);
-const COLOR_DAY_AMBIENT   = new THREE.Color(0xffffff);
-const COLOR_DUSK_AMBIENT  = new THREE.Color(0xff9a66);
-const COLOR_NIGHT_AMBIENT = new THREE.Color(0x3a4a70);
+// Applied to the DirectionalLight (sun), NOT the AmbientLight, so the warm
+// dusk/cold night tint only reaches sun-facing surfaces. This keeps deep
+// caves (out of sun reach + zero sky light) looking neutral at all times.
+const COLOR_DAWN_SUN  = new THREE.Color(0xffc18a);
+const COLOR_DAY_SUN   = new THREE.Color(0xffffff);
+const COLOR_DUSK_SUN  = new THREE.Color(0xff9a66);
+const COLOR_NIGHT_SUN = new THREE.Color(0x3a4a70);
 
 const COLOR_DAWN_SKY  = new THREE.Color(0xf0a070);
 const COLOR_DAY_SKY   = new THREE.Color(0x7ec8e3);
@@ -82,8 +85,8 @@ function computeSkyLightFactor(t: number, nightMin: number): number {
 
 // Scratch objects reused every frame to avoid allocation in the render loop.
 const scratchSunDir = new THREE.Vector3();
-const scratchAmbient = new THREE.Color();
-const scratchClear   = new THREE.Color();
+const scratchSunColor = new THREE.Color();
+const scratchClear    = new THREE.Color();
 
 export function deriveFrame(state: DayNightState): DayNightFrame {
   const phase = classifyPhase(state.t);
@@ -97,26 +100,26 @@ export function deriveFrame(state: DayNightState): DayNightFrame {
   if (state.t < DAWN_END) {
     const u = state.t / DAWN_END;
     if (u < 0.5) {
-      lerpColor(scratchAmbient, COLOR_NIGHT_AMBIENT, COLOR_DAWN_AMBIENT, u * 2);
-      lerpColor(scratchClear,   COLOR_NIGHT_SKY,     COLOR_DAWN_SKY,     u * 2);
+      lerpColor(scratchSunColor, COLOR_NIGHT_SUN, COLOR_DAWN_SUN, u * 2);
+      lerpColor(scratchClear,    COLOR_NIGHT_SKY, COLOR_DAWN_SKY, u * 2);
     } else {
-      lerpColor(scratchAmbient, COLOR_DAWN_AMBIENT, COLOR_DAY_AMBIENT, (u - 0.5) * 2);
-      lerpColor(scratchClear,   COLOR_DAWN_SKY,     COLOR_DAY_SKY,     (u - 0.5) * 2);
+      lerpColor(scratchSunColor, COLOR_DAWN_SUN, COLOR_DAY_SUN, (u - 0.5) * 2);
+      lerpColor(scratchClear,    COLOR_DAWN_SKY, COLOR_DAY_SKY, (u - 0.5) * 2);
     }
   } else if (state.t < DAY_END) {
-    scratchAmbient.copy(COLOR_DAY_AMBIENT);
+    scratchSunColor.copy(COLOR_DAY_SUN);
     scratchClear.copy(COLOR_DAY_SKY);
   } else if (state.t < DUSK_END) {
     const u = (state.t - DAY_END) / (DUSK_END - DAY_END);
     if (u < 0.5) {
-      lerpColor(scratchAmbient, COLOR_DAY_AMBIENT, COLOR_DUSK_AMBIENT, u * 2);
-      lerpColor(scratchClear,   COLOR_DAY_SKY,     COLOR_DUSK_SKY,     u * 2);
+      lerpColor(scratchSunColor, COLOR_DAY_SUN,  COLOR_DUSK_SUN, u * 2);
+      lerpColor(scratchClear,    COLOR_DAY_SKY,  COLOR_DUSK_SKY, u * 2);
     } else {
-      lerpColor(scratchAmbient, COLOR_DUSK_AMBIENT, COLOR_NIGHT_AMBIENT, (u - 0.5) * 2);
-      lerpColor(scratchClear,   COLOR_DUSK_SKY,     COLOR_NIGHT_SKY,     (u - 0.5) * 2);
+      lerpColor(scratchSunColor, COLOR_DUSK_SUN, COLOR_NIGHT_SUN, (u - 0.5) * 2);
+      lerpColor(scratchClear,    COLOR_DUSK_SKY, COLOR_NIGHT_SKY, (u - 0.5) * 2);
     }
   } else {
-    scratchAmbient.copy(COLOR_NIGHT_AMBIENT);
+    scratchSunColor.copy(COLOR_NIGHT_SUN);
     scratchClear.copy(COLOR_NIGHT_SKY);
   }
 
@@ -135,8 +138,8 @@ export function deriveFrame(state: DayNightState): DayNightFrame {
     skyLightFactor,
     sunDir: scratchSunDir,
     sunIntensity: (0.2 + skyLightFactor * 0.8) * horizonFactor,
+    sunColor: scratchSunColor,
     ambientIntensity: 0.2 + skyLightFactor * 0.5,
-    ambientColor: scratchAmbient,
     clearColor: scratchClear,
     phase,
     clockLabel,

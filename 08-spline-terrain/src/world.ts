@@ -185,7 +185,9 @@ export class World {
     const ccz = Math.floor(worldPos.z / CHUNK_SIZE);
 
     const { minHeight, maxHeight } = this.config.params.extent;
-    const minCY = Math.floor(minHeight / CHUNK_SIZE) - 1;
+    // minHeight is the bedrock floor — nothing valid exists below. No margin
+    // here (unlike the +1 on top, which loads a harmless empty sky chunk).
+    const minCY = Math.floor(minHeight / CHUNK_SIZE);
     const maxCY = Math.ceil(maxHeight / CHUNK_SIZE) + 1;
 
     const needed = new Set<string>();

@@ -125,10 +125,16 @@ export function deriveFrame(state: DayNightState): DayNightFrame {
   const minutes = Math.floor((clockT * 24 - hours) * 60);
   const clockLabel = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 
+  // Fade the directional-light contribution as the sun dips toward and below
+  // the horizon. Without this, a low/underground sun produces strong grazing
+  // up-lighting at night — physically wrong and visually obvious at high
+  // nightMin. No moon model, so we simply kill the DirectionalLight at night.
+  const horizonFactor = smoothstep(-0.1, 0.2, scratchSunDir.y);
+
   return {
     skyLightFactor,
     sunDir: scratchSunDir,
-    sunIntensity: 0.2 + skyLightFactor * 0.8,
+    sunIntensity: (0.2 + skyLightFactor * 0.8) * horizonFactor,
     ambientIntensity: 0.2 + skyLightFactor * 0.5,
     ambientColor: scratchAmbient,
     clearColor: scratchClear,

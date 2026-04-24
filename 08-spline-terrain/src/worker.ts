@@ -52,7 +52,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (t1 - t0 > 100) console.warn(`Slow chunk (${cx},${cy},${cz}): ${(t1 - t0).toFixed(0)}ms`);
   const data: ChunkData = result.data;
   const grassColors: Uint32Array = result.grassColors;
-  const lightData = computeChunkLocalLight(data);
+  const lightData = computeChunkLocalLight(data, cy * CHUNK_SIZE, result.heightMap);
 
   const getNeighbor = (lx: number, ly: number, lz: number): number => {
     if (lx < 0 || lx >= CHUNK_SIZE ||

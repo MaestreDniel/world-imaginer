@@ -38,26 +38,34 @@ function propagate(light: Uint8Array, data: ChunkData, queue: Array<[number, num
   }
 }
 
-export function computeChunkLocalLight(data: ChunkData): ChunkLightData {
+export function computeChunkLocalLight(
+  data: ChunkData,
+  worldYOff: number,
+  heightMap: Float64Array,
+): ChunkLightData {
   const sky   = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
   const block = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 
   const skyQueue:   Array<[number, number, number, number]> = [];
   const blockQueue: Array<[number, number, number, number]> = [];
 
-  // ── Sky pass: seed from sky-exposed transparent columns.
+  // ── Sky pass: seed only voxels above the world-column surface.
+  // Per-chunk-local seeding would incorrectly flood caves in sub-surface
+  // chunks; gate by the terrain heightmap so underground chunks never seed.
+  // Within the sky band we still walk top-down with an inSky flag so
+  // tree trunks/canopies block the column below them like before.
   for (let z = 0; z < CHUNK_SIZE; z++) {
     for (let x = 0; x < CHUNK_SIZE; x++) {
+      const surfaceH = heightMap[z * CHUNK_SIZE + x];
       let inSky = true;
       for (let y = CHUNK_SIZE - 1; y >= 0; y--) {
+        const wy = worldYOff + y;
+        if (wy <= surfaceH) break;
         const idx = chunkIndex(x, y, z);
-        const blockId = data[idx];
-        if (inSky && isTransparent(blockId)) {
-          sky[idx] = 15;
-          skyQueue.push([x, y, z, 15]);
-          continue;
-        }
-        inSky = false;
+        if (!isTransparent(data[idx])) { inSky = false; continue; }
+        if (!inSky) continue;
+        sky[idx] = 15;
+        skyQueue.push([x, y, z, 15]);
       }
     }
   }

@@ -42,6 +42,7 @@ export type ChunkData = Uint8Array;
 export interface ChunkResult {
   data: ChunkData;
   grassColors: Uint32Array;
+  heightMap: Float64Array;
 }
 
 export function chunkIndex(x: number, y: number, z: number): number {
@@ -549,5 +550,5 @@ export function generateChunk(
     }
   }
 
-  return { data, grassColors };
+  return { data, grassColors, heightMap: heights };
 }

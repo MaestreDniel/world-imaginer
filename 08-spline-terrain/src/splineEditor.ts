@@ -466,9 +466,149 @@ export interface AnchoredSplineGraphOpts {
   anchorLabel: string;
 }
 
-export function buildAnchoredSplineGraph(_opts: AnchoredSplineGraphOpts): SplineGraphHandle {
+export function buildAnchoredSplineGraph(opts: AnchoredSplineGraphOpts): SplineGraphHandle {
+  const { getList, setList, xRange, yRange, xLabel, anchorLabel } = opts;
+
   const element = document.createElement("div");
-  return { element, rerender: () => {} };
+  element.style.cssText = "padding:4px 0;";
+
+  // Legend strip
+  const legend = document.createElement("div");
+  legend.style.cssText = "display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;";
+  element.appendChild(legend);
+
+  // SVG plot
+  const svgEl = svg("svg", {
+    viewBox: `0 0 ${PLOT.vbW} ${PLOT.vbH}`,
+    width: "100%",
+    preserveAspectRatio: "xMidYMid meet",
+  }) as SVGSVGElement;
+  svgEl.style.display = "block";
+  svgEl.style.touchAction = "none";
+  element.appendChild(svgEl);
+
+  // Add-anchor row
+  const addRow = document.createElement("div");
+  addRow.textContent = "+ Add anchor";
+  addRow.style.cssText = "margin-top:6px;color:#0f3460;cursor:pointer;font-size:0.7rem;";
+  element.appendChild(addRow);
+
+  const frameLayer    = svg("g") as SVGGElement;
+  const dimmedLayer   = svg("g") as SVGGElement;
+  const activeCurve   = svg("g") as SVGGElement;
+  const activePoints  = svg("g") as SVGGElement;
+  const overlayLayer  = svg("g") as SVGGElement;
+  svgEl.appendChild(frameLayer);
+  svgEl.appendChild(dimmedLayer);
+  svgEl.appendChild(activeCurve);
+  svgEl.appendChild(activePoints);
+  svgEl.appendChild(overlayLayer);
+
+  renderFrame(frameLayer, xRange, yRange, xLabel);
+
+  // Active anchor tracked by reference identity, not index.
+  let activeRef: AnchoredSpline | null = null;
+
+  const colorFor = (i: number): string => ANCHOR_PALETTE[i % ANCHOR_PALETTE.length];
+
+  const ensureActive = (list: AnchoredSpline[]): AnchoredSpline | null => {
+    if (list.length === 0) { activeRef = null; return null; }
+    if (activeRef && list.includes(activeRef)) return activeRef;
+    activeRef = list[0];
+    return activeRef;
+  };
+
+  const renderLegend = (list: AnchoredSpline[]) => {
+    legend.innerHTML = "";
+    list.forEach((entry, i) => {
+      const isActive = entry === activeRef;
+      const chip = document.createElement("div");
+      chip.style.cssText = `
+        display:flex;align-items:center;gap:4px;
+        padding:2px 6px;border-radius:3px;font-size:0.66rem;
+        background:${isActive ? "#1a2748" : "transparent"};
+        border:1px solid ${isActive ? colorFor(i) : "#333"};
+        cursor:pointer;
+      `;
+      const swatch = document.createElement("span");
+      swatch.style.cssText = `width:8px;height:8px;border-radius:50%;background:${colorFor(i)};display:inline-block;`;
+      const label = document.createElement("span");
+      label.textContent = `${anchorLabel}=`;
+      label.style.cssText = "color:#aaa;";
+      const input = document.createElement("input");
+      input.type = "number"; input.step = "0.01";
+      input.value = String(entry.anchor);
+      input.style.cssText = "width:50px;background:#0f3460;color:#cfe;border:1px solid #555;border-radius:3px;padding:1px 4px;font-size:0.66rem;font-family:monospace;";
+      const del = document.createElement("span");
+      del.textContent = "×";
+      del.style.cssText = "color:#e94560;cursor:pointer;padding:0 2px;";
+
+      chip.appendChild(swatch);
+      chip.appendChild(label);
+      chip.appendChild(input);
+      chip.appendChild(del);
+      legend.appendChild(chip);
+
+      // Activation by clicking the chip (filled in by Task 7)
+      chip.addEventListener("click", () => { /* filled in by Task 7 */ });
+      input.addEventListener("change", () => { /* filled in by Task 8 */ });
+      del.addEventListener("click", () => { /* filled in by Task 8 */ });
+    });
+  };
+
+  const drawCurves = (list: AnchoredSpline[]) => {
+    while (dimmedLayer.firstChild)  dimmedLayer.removeChild(dimmedLayer.firstChild);
+    while (activeCurve.firstChild)  activeCurve.removeChild(activeCurve.firstChild);
+    while (activePoints.firstChild) activePoints.removeChild(activePoints.firstChild);
+
+    list.forEach((entry, i) => {
+      const color = colorFor(i);
+      const ptsAttr = entry.spline.map(p => {
+        const { sx, sy } = dataToScreen(p.x, p.y, xRange, yRange);
+        return `${sx.toFixed(2)},${sy.toFixed(2)}`;
+      }).join(" ");
+      const isActive = entry === activeRef;
+      if (!isActive) {
+        dimmedLayer.appendChild(svg("polyline", {
+          points: ptsAttr, fill: "none",
+          stroke: color, "stroke-width": 1.4,
+          opacity: 0.35,
+        }));
+      } else {
+        activeCurve.appendChild(svg("polyline", {
+          points: ptsAttr, fill: "none",
+          stroke: color, "stroke-width": 1.4,
+        }));
+        for (let j = 0; j < entry.spline.length; j++) {
+          const p = entry.spline[j];
+          const { sx, sy } = dataToScreen(p.x, p.y, xRange, yRange);
+          activePoints.appendChild(svg("circle", {
+            cx: sx, cy: sy, r: 3,
+            fill: COLORS.point, stroke: "#ffffff", "stroke-width": 1,
+          }));
+        }
+      }
+    });
+  };
+
+  const rerender = () => {
+    const list = getList();
+    ensureActive(list);
+    renderLegend(list);
+    drawCurves(list);
+  };
+
+  // + Add anchor button (filled in by Task 8)
+  addRow.addEventListener("click", () => { /* filled in by Task 8 */ });
+
+  // Pointer handlers wired in Task 7 (activation) and Task 8 wraps them so the
+  // active spline is what gets edited. For now: nothing reacts on the SVG.
+
+  // Suppress unused-variable warnings for symbols later tasks consume.
+  void setList;
+
+  rerender();
+  return { element, rerender };
 }
 
 export interface SplineShapeToolbarOpts {

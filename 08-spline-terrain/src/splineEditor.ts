@@ -181,6 +181,197 @@ function formatTick(v: number): string {
   return v.toFixed(2).replace(/\.?0+$/, "");
 }
 
+// ---------- Shared pointer-handler helper ----------
+
+interface PointerHandlerOpts {
+  svgEl: SVGSVGElement;
+  overlayLayer: SVGGElement;
+  getSpline: () => Spline;
+  setSpline: (s: Spline) => void;
+  rerender: () => void;
+  xRange: [number, number];
+  yRange: [number, number];
+}
+
+const EPS = 1e-4;
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
+}
+
+function clientToSvg(svgEl: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
+  const pt = svgEl.createSVGPoint();
+  pt.x = clientX; pt.y = clientY;
+  const ctm = svgEl.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  const local = pt.matrixTransform(ctm.inverse());
+  return { x: local.x, y: local.y };
+}
+
+function pointHitIndex(s: Spline, sx: number, sy: number,
+                      xRange: [number, number], yRange: [number, number],
+                      tolerance = 5): number {
+  for (let i = 0; i < s.length; i++) {
+    const sp = dataToScreen(s[i].x, s[i].y, xRange, yRange);
+    const dx = sp.sx - sx;
+    const dy = sp.sy - sy;
+    if (dx * dx + dy * dy <= tolerance * tolerance) return i;
+  }
+  return -1;
+}
+
+function interpY(s: Spline, x: number): number {
+  if (x <= s[0].x) return s[0].y;
+  if (x >= s[s.length - 1].x) return s[s.length - 1].y;
+  for (let i = 0; i < s.length - 1; i++) {
+    const a = s[i], b = s[i + 1];
+    if (a.x <= x && x <= b.x) {
+      const t = (x - a.x) / (b.x - a.x);
+      return a.y + (b.y - a.y) * t;
+    }
+  }
+  return s[s.length - 1].y;
+}
+
+function inPlot(sx: number, sy: number): boolean {
+  return sx >= PLOT.left && sx <= PLOT.right && sy >= PLOT.top && sy <= PLOT.bottom;
+}
+
+function showTooltip(layer: SVGGElement, sx: number, sy: number, text: string): void {
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+  const padX = 4, padY = 9;
+  const w = Math.max(38, text.length * 4 + 8);
+  const h = 12;
+  // Position above-right of the point; flip if near edges.
+  let bx = sx + 6;
+  let by = sy - h - 4;
+  if (bx + w > PLOT.right) bx = sx - w - 6;
+  if (by < PLOT.top) by = sy + 6;
+  const rect = svg("rect", {
+    x: bx, y: by, width: w, height: h, rx: 2,
+    fill: COLORS.tip, stroke: COLORS.point, "stroke-width": 0.5,
+  });
+  layer.appendChild(rect);
+  const t = svg("text", {
+    x: bx + padX, y: by + padY,
+    fill: COLORS.tipText, "font-size": 7, "font-family": "monospace",
+  });
+  t.textContent = text;
+  layer.appendChild(t);
+}
+
+function hideTooltip(layer: SVGGElement): void {
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+}
+
+function fmtTip(x: number, y: number): string {
+  return `x=${x.toFixed(2)}  y=${Math.round(y)}`;
+}
+
+function installSplinePointerHandlers(opts: PointerHandlerOpts): void {
+  const { svgEl, overlayLayer, getSpline, setSpline, rerender, xRange, yRange } = opts;
+
+  let dragIdx = -1;
+  let activePointerId = -1;
+
+  const onDown = (ev: PointerEvent) => {
+    const cur0 = getSpline();
+    if (cur0.length === 0) return; // no active spline (e.g. empty anchored list)
+    if (ev.button === 2) {
+      // Right-click: delete a point if hit.
+      const { x: sx, y: sy } = clientToSvg(svgEl, ev.clientX, ev.clientY);
+      const idx = pointHitIndex(cur0, sx, sy, xRange, yRange);
+      if (idx >= 0) {
+        if (cur0.length > 2) {
+          setSpline(cur0.filter((_, i) => i !== idx));
+          rerender();
+          hideTooltip(overlayLayer);
+        }
+        ev.preventDefault();
+      }
+      return;
+    }
+    if (ev.button !== 0) return;
+    const { x: sx, y: sy } = clientToSvg(svgEl, ev.clientX, ev.clientY);
+    if (!inPlot(sx, sy)) return;
+    const idx = pointHitIndex(cur0, sx, sy, xRange, yRange);
+    if (idx >= 0) {
+      dragIdx = idx;
+      activePointerId = ev.pointerId;
+      svgEl.setPointerCapture(ev.pointerId);
+      ev.preventDefault();
+    } else {
+      // Click-to-add at this (x, y).
+      const { x, y } = screenToData(sx, sy, xRange, yRange);
+      const newPt = { x, y: clamp(y, yRange[0], yRange[1]) };
+      const next = [...cur0, newPt].sort((a, b) => a.x - b.x);
+      setSpline(next);
+      rerender();
+      ev.preventDefault();
+    }
+  };
+
+  const onMove = (ev: PointerEvent) => {
+    const { x: sx, y: sy } = clientToSvg(svgEl, ev.clientX, ev.clientY);
+    if (dragIdx >= 0 && ev.pointerId === activePointerId) {
+      const cur = getSpline();
+      const isFirst = dragIdx === 0;
+      const isLast = dragIdx === cur.length - 1;
+      const { x: rawX, y: rawY } = screenToData(sx, sy, xRange, yRange);
+      let nx: number;
+      if (isFirst) nx = xRange[0];
+      else if (isLast) nx = xRange[1];
+      else {
+        const lo = cur[dragIdx - 1].x + EPS;
+        const hi = cur[dragIdx + 1].x - EPS;
+        nx = clamp(rawX, lo, hi);
+      }
+      const ny = clamp(rawY, yRange[0], yRange[1]);
+      const next = cur.map((p, i) => i === dragIdx ? { x: nx, y: ny } : p);
+      setSpline(next);
+      rerender();
+      showTooltip(overlayLayer, dataToScreen(nx, ny, xRange, yRange).sx,
+                  dataToScreen(nx, ny, xRange, yRange).sy, fmtTip(nx, ny));
+      ev.preventDefault();
+      return;
+    }
+    // Hover: tooltip near a point or interpolated curve value.
+    if (!inPlot(sx, sy)) { hideTooltip(overlayLayer); return; }
+    const cur = getSpline();
+    if (cur.length === 0) { hideTooltip(overlayLayer); return; }
+    const idx = pointHitIndex(cur, sx, sy, xRange, yRange);
+    if (idx >= 0) {
+      const p = cur[idx];
+      const sp = dataToScreen(p.x, p.y, xRange, yRange);
+      showTooltip(overlayLayer, sp.sx, sp.sy, fmtTip(p.x, p.y));
+    } else {
+      const { x: dx } = screenToData(sx, sy, xRange, yRange);
+      const dy = interpY(cur, dx);
+      const sp = dataToScreen(dx, dy, xRange, yRange);
+      showTooltip(overlayLayer, sp.sx, sp.sy, fmtTip(dx, dy));
+    }
+  };
+
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId === activePointerId) {
+      dragIdx = -1;
+      activePointerId = -1;
+      try { svgEl.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+    }
+  };
+
+  const onLeave = () => { hideTooltip(overlayLayer); };
+
+  const onContextMenu = (ev: MouseEvent) => { ev.preventDefault(); };
+
+  svgEl.addEventListener("pointerdown", onDown);
+  svgEl.addEventListener("pointermove", onMove);
+  svgEl.addEventListener("pointerup", onUp);
+  svgEl.addEventListener("pointercancel", onUp);
+  svgEl.addEventListener("pointerleave", onLeave);
+  svgEl.addEventListener("contextmenu", onContextMenu);
+}
+
 // ---------- Public factory stubs (filled in by later tasks) ----------
 
 export interface SplineGraphOpts {
@@ -251,6 +442,16 @@ export function buildSplineGraph(opts: SplineGraphOpts): SplineGraphHandle {
       pointLayer.appendChild(c);
     }
   };
+
+  installSplinePointerHandlers({
+    svgEl,
+    overlayLayer,
+    getSpline,
+    setSpline: opts.setSpline,
+    rerender,
+    xRange,
+    yRange,
+  });
 
   rerender();
   return { element, rerender };

@@ -549,8 +549,16 @@ export function buildAnchoredSplineGraph(opts: AnchoredSplineGraphOpts): SplineG
       chip.appendChild(del);
       legend.appendChild(chip);
 
-      // Activation by clicking the chip (filled in by Task 7)
-      chip.addEventListener("click", () => { /* filled in by Task 7 */ });
+      // Activation by clicking the chip
+      chip.addEventListener("click", (ev) => {
+        const target = ev.target as HTMLElement;
+        // Don't activate when clicking the value input or × button.
+        if (target === input || target === del) return;
+        if (activeRef !== entry) {
+          activeRef = entry;
+          rerender();
+        }
+      });
       input.addEventListener("change", () => { /* filled in by Task 8 */ });
       del.addEventListener("click", () => { /* filled in by Task 8 */ });
     });
@@ -601,11 +609,62 @@ export function buildAnchoredSplineGraph(opts: AnchoredSplineGraphOpts): SplineG
   // + Add anchor button (filled in by Task 8)
   addRow.addEventListener("click", () => { /* filled in by Task 8 */ });
 
-  // Pointer handlers wired in Task 7 (activation) and Task 8 wraps them so the
-  // active spline is what gets edited. For now: nothing reacts on the SVG.
+  // Pointer behavior: clicking a dimmed curve activates that anchor. Otherwise
+  // delegate to installSplinePointerHandlers acting on the active spline.
+  const segHitsCurve = (sx: number, sy: number, sp: Spline, tolerance = 4): boolean => {
+    for (let i = 0; i < sp.length - 1; i++) {
+      const a = dataToScreen(sp[i].x, sp[i].y, xRange, yRange);
+      const b = dataToScreen(sp[i + 1].x, sp[i + 1].y, xRange, yRange);
+      const dx = b.sx - a.sx, dy = b.sy - a.sy;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) continue;
+      let t = ((sx - a.sx) * dx + (sy - a.sy) * dy) / len2;
+      t = clamp(t, 0, 1);
+      const px = a.sx + t * dx, py = a.sy + t * dy;
+      const ex = sx - px, ey = sy - py;
+      if (ex * ex + ey * ey <= tolerance * tolerance) return true;
+    }
+    return false;
+  };
 
-  // Suppress unused-variable warnings for symbols later tasks consume.
-  void setList;
+  svgEl.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return;
+    const { x: sx, y: sy } = clientToSvg(svgEl, ev.clientX, ev.clientY);
+    const list = getList();
+    if (!activeRef) return;
+    const onActive = segHitsCurve(sx, sy, activeRef.spline);
+    const onActivePoint = pointHitIndex(activeRef.spline, sx, sy, xRange, yRange) >= 0;
+    if (!onActive && !onActivePoint) {
+      for (const entry of list) {
+        if (entry === activeRef) continue;
+        if (segHitsCurve(sx, sy, entry.spline)) {
+          activeRef = entry;
+          rerender();
+          ev.stopImmediatePropagation();
+          return;
+        }
+      }
+    }
+  }, true); // capture phase so we can pre-empt the editing handler
+
+  installSplinePointerHandlers({
+    svgEl,
+    overlayLayer,
+    getSpline: () => activeRef ? activeRef.spline : [],
+    setSpline: (s) => {
+      if (!activeRef) return;
+      const list = getList();
+      const next = list.map(e => e === activeRef ? { ...e, spline: s } : e);
+      // The mapped entry is a new object; find it by the freshly-set spline ref
+      // so activeRef stays aligned with the list we just produced.
+      const updated = next.find(e => e.spline === s);
+      if (updated) activeRef = updated;
+      setList(next);
+    },
+    rerender,
+    xRange,
+    yRange,
+  });
 
   rerender();
   return { element, rerender };

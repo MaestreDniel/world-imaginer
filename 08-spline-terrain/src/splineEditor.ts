@@ -559,8 +559,32 @@ export function buildAnchoredSplineGraph(opts: AnchoredSplineGraphOpts): SplineG
           rerender();
         }
       });
-      input.addEventListener("change", () => { /* filled in by Task 8 */ });
-      del.addEventListener("click", () => { /* filled in by Task 8 */ });
+      input.addEventListener("change", () => {
+        const v = Number(input.value);
+        if (!Number.isFinite(v)) { input.value = String(entry.anchor); return; }
+        const clamped = clamp(v, xRange[0], xRange[1]);
+        const list = getList();
+        const next = list
+          .map(e => e === entry ? { ...e, anchor: clamped } : e)
+          .sort((a, b) => a.anchor - b.anchor);
+        // Keep activeRef pointing at the same anchor by identity.
+        const updated = next.find(e => e.spline === entry.spline);
+        if (updated) activeRef = updated;
+        setList(next);
+        rerender();
+      });
+      del.addEventListener("click", (ev) => {
+        ev.stopPropagation(); // don't trigger chip-click activation
+        const list = getList();
+        if (list.length <= 1) return;
+        const removeIdx = list.indexOf(entry);
+        const next = list.filter((_, j) => j !== removeIdx);
+        if (activeRef === entry) {
+          activeRef = next[Math.max(0, removeIdx - 1)] ?? next[0] ?? null;
+        }
+        setList(next);
+        rerender();
+      });
     });
   };
 
@@ -606,8 +630,19 @@ export function buildAnchoredSplineGraph(opts: AnchoredSplineGraphOpts): SplineG
     drawCurves(list);
   };
 
-  // + Add anchor button (filled in by Task 8)
-  addRow.addEventListener("click", () => { /* filled in by Task 8 */ });
+  addRow.addEventListener("click", () => {
+    const list = getList();
+    const lastAnchor = list.length ? list[list.length - 1].anchor : 0;
+    const newAnchor = clamp(lastAnchor + 0.1, xRange[0], xRange[1]);
+    const newEntry: AnchoredSpline = {
+      anchor: newAnchor,
+      spline: [{ x: -1, y: 0 }, { x: 1, y: 0 }],
+    };
+    const next = [...list, newEntry].sort((a, b) => a.anchor - b.anchor);
+    activeRef = next.find(e => e.spline === newEntry.spline) ?? newEntry;
+    setList(next);
+    rerender();
+  });
 
   // Pointer behavior: clicking a dimmed curve activates that anchor. Otherwise
   // delegate to installSplinePointerHandlers acting on the active spline.

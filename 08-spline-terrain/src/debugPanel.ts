@@ -9,6 +9,7 @@ import type { Spline, AnchoredSpline } from "./splines";
 import {
   buildSplineGraph,
   buildAnchoredSplineGraph,
+  buildSplineShapeToolbar,
   Y_RANGE_CONTINENT,
   Y_RANGE_EROSION,
   Y_RANGE_PV,
@@ -312,6 +313,13 @@ export class DebugPanel {
     for (const section of SECTIONS) {
       body.appendChild(this.buildSection(section));
     }
+
+    const splineToolbar = buildSplineShapeToolbar({
+      getShape: () => this.params.shape.shape,
+      setShape: (s) => { this.params.shape.shape = s; },
+      onChange: () => { for (const r of this.splineRerenders) r(); },
+    });
+    body.appendChild(splineToolbar.element);
 
     body.appendChild(this.buildSplineSection(
       "Splines · Continentalness → Height",

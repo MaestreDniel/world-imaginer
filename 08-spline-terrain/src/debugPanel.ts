@@ -6,7 +6,14 @@ import {
   cloneParams,
 } from "./generationParams";
 import type { Spline, AnchoredSpline } from "./splines";
-import { buildSplineGraph, Y_RANGE_CONTINENT, X_RANGE } from "./splineEditor";
+import {
+  buildSplineGraph,
+  buildAnchoredSplineGraph,
+  Y_RANGE_CONTINENT,
+  Y_RANGE_EROSION,
+  Y_RANGE_PV,
+  X_RANGE,
+} from "./splineEditor";
 import type { DayNightState, DayNightFrame } from "./dayNight";
 
 // ── Slider definition metadata ─────────────────────────────────────
@@ -547,14 +554,6 @@ export class DebugPanel {
     body.style.cssText = "padding:6px 12px;";
     wrapper.appendChild(body);
 
-    const list = document.createElement("div");
-    body.appendChild(list);
-
-    const addAnchor = document.createElement("div");
-    addAnchor.textContent = "+ Add anchor";
-    addAnchor.style.cssText = "margin-top:6px;color:#0f3460;cursor:pointer;font-size:0.7rem;";
-    body.appendChild(addAnchor);
-
     let collapsed = false;
     header.addEventListener("click", () => {
       collapsed = !collapsed;
@@ -562,69 +561,22 @@ export class DebugPanel {
       header.textContent = (collapsed ? "▶ " : "▼ ") + title;
     });
 
-    const render = () => {
-      list.innerHTML = "";
-      const ls = getList();
-      for (let i = 0; i < ls.length; i++) {
-        const row = document.createElement("div");
-        row.style.cssText = "border:1px solid #333;border-radius:3px;padding:4px;margin-bottom:4px;";
+    const isErosion = title.toLowerCase().includes("erosion (by");
+    const yRange = isErosion ? Y_RANGE_EROSION : Y_RANGE_PV;
+    const xLabel = isErosion ? "erosion" : "peaks & valleys";
+    const anchorLabel = isErosion ? "cont" : "ero";
 
-        const topBar = document.createElement("div");
-        topBar.style.cssText = "display:flex;gap:6px;align-items:center;margin-bottom:4px;";
-        const lbl = document.createElement("span");
-        lbl.textContent = "anchor:";
-        lbl.style.cssText = "font-size:0.7rem;color:#aaa;";
-        const anchIn = document.createElement("input");
-        anchIn.type = "number"; anchIn.step = "0.01";
-        anchIn.value = String(ls[i].anchor);
-        anchIn.style.cssText = "width:70px;background:#0f3460;color:#ccc;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:0.7rem;";
-
-        const del = document.createElement("span");
-        del.textContent = "Delete anchor";
-        del.style.cssText = "cursor:pointer;color:#e94560;font-size:0.65rem;margin-left:auto;";
-
-        anchIn.addEventListener("change", () => {
-          const next = getList().map((e, j) => j === i ? { ...e, anchor: Number(anchIn.value) } : e);
-          next.sort((a, b) => a.anchor - b.anchor);
-          setList(next); render();
-        });
-        del.addEventListener("click", () => {
-          const current = getList();
-          if (current.length <= 1) return;
-          setList(current.filter((_, j) => j !== i));
-          render();
-        });
-
-        topBar.appendChild(lbl); topBar.appendChild(anchIn); topBar.appendChild(del);
-        row.appendChild(topBar);
-
-        const sub = this.buildSplineSection(
-          "spline",
-          () => getList()[i].spline,
-          (s) => {
-            const next = getList().map((e, j) => j === i ? { ...e, spline: s } : e);
-            setList(next);
-          },
-        );
-        sub.style.marginTop = "0";
-        row.appendChild(sub);
-        list.appendChild(row);
-      }
-    };
-
-    addAnchor.addEventListener("click", () => {
-      const cur = getList();
-      const newAnchor = cur.length ? cur[cur.length - 1].anchor + 0.1 : 0;
-      const next: AnchoredSpline[] = [
-        ...cur,
-        { anchor: newAnchor, spline: [{ x: -1, y: 0 }, { x: 1, y: 0 }] },
-      ];
-      next.sort((a, b) => a.anchor - b.anchor);
-      setList(next); render();
+    const graph = buildAnchoredSplineGraph({
+      getList,
+      setList,
+      xRange: X_RANGE,
+      yRange,
+      xLabel,
+      anchorLabel,
     });
+    body.appendChild(graph.element);
 
-    this.splineRerenders.push(render);
-    render();
+    this.splineRerenders.push(graph.rerender);
     return wrapper;
   }
 

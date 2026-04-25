@@ -210,7 +210,7 @@ function clientToSvg(svgEl: SVGSVGElement, clientX: number, clientY: number): { 
 
 function pointHitIndex(s: Spline, sx: number, sy: number,
                       xRange: [number, number], yRange: [number, number],
-                      tolerance = 5): number {
+                      tolerance = 8): number {
   for (let i = 0; i < s.length; i++) {
     const sp = dataToScreen(s[i].x, s[i].y, xRange, yRange);
     const dx = sp.sx - sx;

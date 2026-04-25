@@ -295,10 +295,6 @@ Summary for implementation checklist:
 
 Documented here so they aren't lost; not part of this spec.
 
-- **Visual spline editor.** Replace the numeric rows with per-spline SVG
-  graphs. Draggable control points, click-to-add, right-click-to-delete,
-  hover tooltips with `(x, y)`. Matches the reference images that motivated
-  this feature.
 - **Full multi-noise biome selection.** Drop the (temp, humid) picker. Every
   biome declares a 6D climate box on `(temperature, humidity, continental-
   ness, erosion, peaks & valleys, depth)`; picker returns the closest match.

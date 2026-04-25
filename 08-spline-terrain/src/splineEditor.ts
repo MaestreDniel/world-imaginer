@@ -196,9 +196,64 @@ export interface SplineGraphHandle {
   rerender(): void;
 }
 
-export function buildSplineGraph(_opts: SplineGraphOpts): SplineGraphHandle {
+export function buildSplineGraph(opts: SplineGraphOpts): SplineGraphHandle {
+  const { getSpline, xRange, yRange, xLabel } = opts;
+
   const element = document.createElement("div");
-  return { element, rerender: () => {} };
+  element.style.cssText = "padding:4px 0;";
+
+  const svgEl = svg("svg", {
+    viewBox: `0 0 ${PLOT.vbW} ${PLOT.vbH}`,
+    width: "100%",
+    preserveAspectRatio: "xMidYMid meet",
+  }) as SVGSVGElement;
+  svgEl.style.display = "block";
+  svgEl.style.touchAction = "none";
+  element.appendChild(svgEl);
+
+  const frameLayer = svg("g") as SVGGElement;
+  const curveLayer = svg("g") as SVGGElement;
+  const pointLayer = svg("g") as SVGGElement;
+  const overlayLayer = svg("g") as SVGGElement; // tooltip + hover halo
+  svgEl.appendChild(frameLayer);
+  svgEl.appendChild(curveLayer);
+  svgEl.appendChild(pointLayer);
+  svgEl.appendChild(overlayLayer);
+
+  renderFrame(frameLayer, xRange, yRange, xLabel);
+
+  const rerender = () => {
+    while (curveLayer.firstChild) curveLayer.removeChild(curveLayer.firstChild);
+    while (pointLayer.firstChild) pointLayer.removeChild(pointLayer.firstChild);
+
+    const s = getSpline();
+    const pointsAttr = s.map(p => {
+      const { sx, sy } = dataToScreen(p.x, p.y, xRange, yRange);
+      return `${sx.toFixed(2)},${sy.toFixed(2)}`;
+    }).join(" ");
+
+    curveLayer.appendChild(svg("polyline", {
+      points: pointsAttr,
+      fill: "none",
+      stroke: COLORS.curve,
+      "stroke-width": 1.4,
+    }));
+
+    for (let i = 0; i < s.length; i++) {
+      const p = s[i];
+      const { sx, sy } = dataToScreen(p.x, p.y, xRange, yRange);
+      const c = svg("circle", {
+        cx: sx, cy: sy, r: 3,
+        fill: COLORS.point,
+        stroke: "#ffffff", "stroke-width": 1,
+      });
+      (c as SVGElement).setAttribute("data-idx", String(i));
+      pointLayer.appendChild(c);
+    }
+  };
+
+  rerender();
+  return { element, rerender };
 }
 
 export interface AnchoredSplineGraphOpts {

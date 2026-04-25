@@ -6,6 +6,7 @@ import {
   cloneParams,
 } from "./generationParams";
 import type { Spline, AnchoredSpline } from "./splines";
+import { buildSplineGraph, Y_RANGE_CONTINENT, X_RANGE } from "./splineEditor";
 import type { DayNightState, DayNightFrame } from "./dayNight";
 
 // ── Slider definition metadata ─────────────────────────────────────
@@ -509,14 +510,6 @@ export class DebugPanel {
     body.style.cssText = "padding:6px 12px;";
     wrapper.appendChild(body);
 
-    const table = document.createElement("div");
-    body.appendChild(table);
-
-    const addBtn = document.createElement("div");
-    addBtn.textContent = "+ Add point";
-    addBtn.style.cssText = "margin-top:4px;color:#0f3460;cursor:pointer;font-size:0.7rem;";
-    body.appendChild(addBtn);
-
     let collapsed = false;
     header.addEventListener("click", () => {
       collapsed = !collapsed;
@@ -524,58 +517,16 @@ export class DebugPanel {
       header.textContent = (collapsed ? "▶ " : "▼ ") + title;
     });
 
-    const render = () => {
-      table.innerHTML = "";
-      const s = getSpline();
-      for (let i = 0; i < s.length; i++) {
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;gap:4px;margin-bottom:2px;align-items:center;";
-
-        const xIn = document.createElement("input");
-        xIn.type = "number"; xIn.step = "0.01";
-        xIn.value = String(s[i].x);
-        xIn.style.cssText = "width:60px;background:#0f3460;color:#ccc;border:1px solid #555;border-radius:3px;padding:2px 4px;font-size:0.7rem;";
-
-        const yIn = document.createElement("input");
-        yIn.type = "number"; yIn.step = "1";
-        yIn.value = String(s[i].y);
-        yIn.style.cssText = xIn.style.cssText;
-
-        const del = document.createElement("span");
-        del.textContent = "×";
-        del.style.cssText = "cursor:pointer;color:#e94560;padding:0 4px;";
-
-        xIn.addEventListener("change", () => {
-          const next = getSpline().map((p, j) => j === i ? { ...p, x: Number(xIn.value) } : p);
-          next.sort((a, b) => a.x - b.x);
-          setSpline(next); render();
-        });
-        yIn.addEventListener("change", () => {
-          const next = getSpline().map((p, j) => j === i ? { ...p, y: Number(yIn.value) } : p);
-          setSpline(next); render();
-        });
-        del.addEventListener("click", () => {
-          const current = getSpline();
-          if (current.length <= 2) return;
-          setSpline(current.filter((_, j) => j !== i));
-          render();
-        });
-
-        row.appendChild(xIn); row.appendChild(yIn); row.appendChild(del);
-        table.appendChild(row);
-      }
-    };
-
-    addBtn.addEventListener("click", () => {
-      const s = getSpline();
-      const last = s[s.length - 1];
-      const next = [...s, { x: Math.min(1, last.x + 0.1), y: last.y }];
-      next.sort((a, b) => a.x - b.x);
-      setSpline(next); render();
+    const graph = buildSplineGraph({
+      getSpline,
+      setSpline,
+      xRange: X_RANGE,
+      yRange: Y_RANGE_CONTINENT,
+      xLabel: "continentalness",
     });
+    body.appendChild(graph.element);
 
-    this.splineRerenders.push(render);
-    render();
+    this.splineRerenders.push(graph.rerender);
     return wrapper;
   }
 

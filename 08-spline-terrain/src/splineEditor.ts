@@ -711,8 +711,122 @@ export interface SplineShapeToolbarOpts {
   onChange: () => void;
 }
 
-export function buildSplineShapeToolbar(_opts: SplineShapeToolbarOpts): { element: HTMLElement } {
+function deepCloneShape(s: TerrainShape): TerrainShape {
+  return JSON.parse(JSON.stringify(s)) as TerrainShape;
+}
+
+function isSpline(value: unknown): value is Spline {
+  return Array.isArray(value)
+    && value.length >= 2
+    && value.every(p => p && typeof (p as { x: unknown }).x === "number"
+                          && typeof (p as { y: unknown }).y === "number");
+}
+
+function isAnchoredList(value: unknown): value is AnchoredSpline[] {
+  return Array.isArray(value)
+    && value.length >= 1
+    && value.every(e => e && typeof (e as { anchor: unknown }).anchor === "number"
+                          && isSpline((e as { spline: unknown }).spline));
+}
+
+function validateAndNormalize(raw: unknown): TerrainShape | null {
+  if (!raw || typeof raw !== "object") return null;
+  const shape = (raw as { shape?: unknown }).shape;
+  if (!shape || typeof shape !== "object") return null;
+  const s = shape as Record<string, unknown>;
+  if (!isSpline(s.continent)) return null;
+  if (!isAnchoredList(s.erosionByContinent)) return null;
+  if (!isAnchoredList(s.pvByErosion)) return null;
+  const continent = [...s.continent].sort((a, b) => a.x - b.x);
+  const erosionByContinent = s.erosionByContinent
+    .map(e => ({ anchor: e.anchor, spline: [...e.spline].sort((a, b) => a.x - b.x) }))
+    .sort((a, b) => a.anchor - b.anchor);
+  const pvByErosion = s.pvByErosion
+    .map(e => ({ anchor: e.anchor, spline: [...e.spline].sort((a, b) => a.x - b.x) }))
+    .sort((a, b) => a.anchor - b.anchor);
+  return { continent, erosionByContinent, pvByErosion };
+}
+
+export function buildSplineShapeToolbar(opts: SplineShapeToolbarOpts): { element: HTMLElement } {
+  const { getShape, setShape, onChange } = opts;
+
   const element = document.createElement("div");
+  element.style.cssText = "padding:6px 12px;border-bottom:1px solid #2a2a4a;display:flex;gap:6px;align-items:center;";
+
+  const btnStyle =
+    "background:#0f3460;padding:3px 6px;border-radius:3px;border:1px solid #555;cursor:pointer;font-size:0.65rem;color:#ccc;";
+
+  const exportBtn = document.createElement("span");
+  exportBtn.textContent = "↓ Export shape";
+  exportBtn.title = "Export terrain shape as JSON";
+  exportBtn.style.cssText = btnStyle;
+  exportBtn.addEventListener("click", () => {
+    const data = JSON.stringify(
+      { worldImaginerSplineShape: true, shape: getShape() },
+      null, 2,
+    );
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "terrain-shape.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  const importBtn = document.createElement("span");
+  importBtn.textContent = "↑ Import shape";
+  importBtn.title = "Import terrain shape from JSON";
+  importBtn.style.cssText = btnStyle;
+  importBtn.addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.style.display = "none";
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onerror = () => alert("Failed to read shape file.");
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result as string) as { worldImaginerSplineShape?: unknown };
+          if (data.worldImaginerSplineShape !== true) {
+            alert("Not a valid spline shape file.");
+            return;
+          }
+          const normalized = validateAndNormalize(data);
+          if (!normalized) {
+            alert("Not a valid spline shape file.");
+            return;
+          }
+          setShape(normalized);
+          onChange();
+        } catch {
+          alert("Not a valid spline shape file.");
+        }
+      };
+      reader.readAsText(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+  });
+
+  const resetBtn = document.createElement("span");
+  resetBtn.textContent = "Reset to defaults";
+  resetBtn.title = "Restore the default terrain shape";
+  resetBtn.style.cssText = btnStyle;
+  resetBtn.addEventListener("click", () => {
+    setShape(deepCloneShape(DEFAULT_TERRAIN_SHAPE));
+    onChange();
+  });
+
+  element.appendChild(exportBtn);
+  element.appendChild(importBtn);
+  element.appendChild(resetBtn);
   return { element };
 }
 

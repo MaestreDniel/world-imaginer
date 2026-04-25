@@ -121,8 +121,8 @@ export const DEFAULT_PARAMS: GenerationParams = {
     },
   },
   extent: {
-    minHeight: -48,
-    maxHeight: 120,
+    minHeight: -16,
+    maxHeight: 104,
   },
   erosion: {
     enabled: false,

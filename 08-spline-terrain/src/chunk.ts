@@ -130,8 +130,14 @@ export function generateChunk(
   // ── Erosion pass ─────────────────────────────────────────────────
   // Generate a padded heightmap, run erosion on it, then copy
   // the inner region back to heights[].
+  //
+  // Pad equals maxLifetime: the smallest halo such that every droplet
+  // whose trajectory could reach this chunk's interior is fully simulated
+  // here. Combined with world-deterministic droplet spawning in erode(),
+  // this means neighbouring chunks share the droplets that affect their
+  // common seam, eliminating the chunk-grid artifact when erosion is on.
   if (config.params.erosion.enabled) {
-    const ERODE_PAD = 8;
+    const ERODE_PAD = config.params.erosion.maxLifetime;
     const padSize = CHUNK_SIZE + 2 * ERODE_PAD;
     const paddedMap = new Float64Array(padSize * padSize);
 
@@ -152,9 +158,16 @@ export function generateChunk(
       }
     }
 
-    // Run erosion
-    erode(paddedMap, padSize, toErosionConfig(config.params.erosion),
-      seed + chunkX * 73856093 + chunkZ * 19349663);
+    // Run erosion. Droplets are spawned per *world* cell, so the same world
+    // location gets the same droplet trajectory regardless of which chunk's
+    // pad covers it — neighbouring pads' overlap region produces identical
+    // contributions on both sides of the seam.
+    erode(
+      paddedMap, padSize,
+      worldXOff - ERODE_PAD, worldZOff - ERODE_PAD,
+      toErosionConfig(config.params.erosion),
+      seed,
+    );
 
     // Copy eroded heights back
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -383,93 +396,163 @@ export function generateChunk(
 
   // Structure placement pass — vegetation
   //
-  // Two-stage tree placement:
-  //   Stage 1 builds a treeMask from pure noise/height data (no data[] reads),
-  //   applying a ≥1-block spacing rule so adjacent trunks get rejected. Because
-  //   stage 1 is data-free, this chunk and the chunk above compute identical
-  //   masks, keeping cross-chunk canopy painting consistent.
-  //   Stage 2 places trees where the mask allows and cacti as before. Each chunk
-  //   also paints leaves for trees whose surface sits in the chunk directly
-  //   below, so canopies that cross a chunk Y boundary still render.
+  // Poisson-disk slot selection in world space:
+  //   1. Build a candidate map (chunk + halo) of cells whose tree noise passes
+  //      a generous global threshold.
+  //   2. A candidate "wins" iff its priority hash beats every candidate
+  //      neighbour in the 3×3 footprint. Decisions are deterministic per
+  //      (wx, wz, seed), independent of chunk boundaries — no chunk-grid
+  //      dead strips.
+  //   3. Trunks at chunk-border halo positions are evaluated and painted from
+  //      this chunk too, so canopies that cross an X/Z boundary render
+  //      seamlessly. makeSetter clips writes outside [0, CHUNK_SIZE).
   const MAX_TREE_REACH = 10;
-  const treeMask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+  const CANOPY_HALO = 2;       // max canopy radius for any tree species
+  const POISSON_RADIUS = 1;    // 3×3 spacing footprint
+  const NOISE_HALO = CANOPY_HALO + POISSON_RADIUS; // 3 — covers neighbour lookups for halo trunks
+  const NOISE_SIDE = CHUNK_SIZE + 2 * NOISE_HALO;
+  const candidate = new Uint8Array(NOISE_SIDE * NOISE_SIDE);
 
-  // ── Stage 1: decide tree-bearing columns with spacing ────────────
-  for (let lz = 3; lz < CHUNK_SIZE - 3; lz++) {
-    for (let lx = 3; lx < CHUNK_SIZE - 3; lx++) {
-      const colIdx = lz * CHUNK_SIZE + lx;
-      const biomeDef = BIOME_DEFS[biomes[colIdx]];
-      if (biomeDef.treeWood === null || biomeDef.treeLeaves === null) continue;
-      if (heights[colIdx] <= waterLevel) continue;
+  // Generous candidate pool sized for the densest biome (forest ≈ 0.35).
+  // Per-biome thinning below restores original density ratios.
+  const userVeg = config.params.vegetation.treeDensity;
+  const GLOBAL_TREE_DENSITY = 0.40;
 
+  for (let lz = -NOISE_HALO; lz < CHUNK_SIZE + NOISE_HALO; lz++) {
+    for (let lx = -NOISE_HALO; lx < CHUNK_SIZE + NOISE_HALO; lx++) {
       const wx = worldXOff + lx;
       const wz = worldZOff + lz;
-      const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
-      const normalised = (treeVal + 1) * 0.5;
-      if (normalised >= biomeDef.treeDensity * config.params.vegetation.treeDensity) continue;
-
-      // Reject if any already-decided neighbour tree sits in the 3×3 footprint.
-      let conflict = false;
-      for (let dz = -1; dz <= 1 && !conflict; dz++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dz === 0) continue;
-          if (treeMask[(lz + dz) * CHUNK_SIZE + (lx + dx)]) {
-            conflict = true;
-            break;
-          }
-        }
+      const v = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
+      if ((v + 1) * 0.5 < GLOBAL_TREE_DENSITY) {
+        candidate[(lz + NOISE_HALO) * NOISE_SIDE + (lx + NOISE_HALO)] = 1;
       }
-      if (conflict) continue;
-
-      treeMask[colIdx] = 1;
     }
   }
 
-  // ── Stage 2: paint trees and cacti ───────────────────────────────
-  for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
-    for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+  function priorityHash(wx: number, wz: number): number {
+    let h = (Math.imul(wx | 0, 374761393) ^ Math.imul(wz | 0, 668265263) ^ Math.imul(seed | 0, 2654435761)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  // Decoupled hash for biome-acceptance roll → [0, 1).
+  function unitHash(wx: number, wz: number): number {
+    let h = (Math.imul(wx | 0, 73856093) ^ Math.imul(wz | 0, 19349663) ^ Math.imul(seed | 0, 83492791)) | 0;
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+  }
+
+  function isSelected(lx: number, lz: number): boolean {
+    const cIdx = (lz + NOISE_HALO) * NOISE_SIDE + (lx + NOISE_HALO);
+    if (!candidate[cIdx]) return false;
+    const wx = worldXOff + lx;
+    const wz = worldZOff + lz;
+    const p = priorityHash(wx, wz);
+    for (let dz = -POISSON_RADIUS; dz <= POISSON_RADIUS; dz++) {
+      for (let dx = -POISSON_RADIUS; dx <= POISSON_RADIUS; dx++) {
+        if (dx === 0 && dz === 0) continue;
+        const nIdx = (lz + dz + NOISE_HALO) * NOISE_SIDE + (lx + dx + NOISE_HALO);
+        if (!candidate[nIdx]) continue;
+        const np = priorityHash(wx + dx, wz + dz);
+        if (np >= p) return false;
+      }
+    }
+    return true;
+  }
+
+  const treeMask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
+  for (let lz = -CANOPY_HALO; lz < CHUNK_SIZE + CANOPY_HALO; lz++) {
+    for (let lx = -CANOPY_HALO; lx < CHUNK_SIZE + CANOPY_HALO; lx++) {
+      if (!isSelected(lx, lz)) continue;
+
       const wx = worldXOff + lx;
       const wz = worldZOff + lz;
-      const colIdx = lz * CHUNK_SIZE + lx;
-      const biome = biomes[colIdx];
-      const biomeDef = BIOME_DEFS[biome];
-      const surfaceH = heights[colIdx];
+      const inChunk = (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE);
+
+      let biomeId: number;
+      let surfaceH: number;
+      if (inChunk) {
+        const colIdx = lz * CHUNK_SIZE + lx;
+        biomeId = biomes[colIdx];
+        surfaceH = heights[colIdx];
+      } else {
+        // Mirror the in-chunk pipeline exactly: classify biome using un-carved
+        // height (matches lines 87-94), then apply river carving for surfaceH
+        // (matches lines 110-128). Erosion is per-chunk and intentionally skipped.
+        const sample = terrainShaper.sampleClimate(wx, wz);
+        const baseH = terrainShaper.heightFromClimate(sample);
+        const { temp, humid } = tempHumidSampler(wx, wz);
+        biomeId = classifyBiome(
+          sample.continentalness, sample.erosion, temp, humid,
+          baseH, waterLevel, config.params.shape.biomeClimate,
+        );
+        surfaceH = baseH;
+        const v = riverNoise.voronoi2D(wx / rivers.voronoiScale, wz / rivers.voronoiScale);
+        const edgeDist = v.f2 - v.f1;
+        if (edgeDist < rivers.edgeThreshold && surfaceH > waterLevel - 2) {
+          const carveStrength = (1 - edgeDist / rivers.edgeThreshold);
+          const maxCarve = rivers.maxCarveDepth * carveStrength * carveStrength;
+          surfaceH = Math.max(waterLevel - 2, surfaceH - maxCarve);
+        }
+      }
+      const biomeDef = BIOME_DEFS[biomeId];
 
       if (surfaceH <= waterLevel) continue;
-
+      // Deterministic rejection of mountain peaks where the surface becomes snow
+      // (matches the snow-cap rule in the voxel-fill pass). Both in-chunk and
+      // halo paths must agree on rejection so cross-chunk canopies are seamless.
+      if (biomeId === Biome.Mountains && surfaceH > 30) continue;
       const surfaceLocal = Math.floor(surfaceH) - worldYOff;
-      if (surfaceLocal >= CHUNK_SIZE) continue;          // tree entirely above us
-      if (surfaceLocal + MAX_TREE_REACH < 0) continue;   // tree ends below us
 
-      // Surface-block check only runs when the surface cell is in this chunk.
-      // Cross-chunk leaf painting trusts deterministic noise.
-      if (surfaceLocal >= 0) {
-        if (surfaceLocal < 4 || surfaceLocal >= CHUNK_SIZE - 1) continue;
+      // Cactus path — 1×1, no canopy spillover, only handled when in this chunk.
+      if (biomeDef.cactus) {
+        if (!inChunk) continue;
+        const accept = Math.min(1, (0.04 * userVeg) / GLOBAL_TREE_DENSITY);
+        if (unitHash(wx, wz) >= accept) continue;
+        if (surfaceLocal < 0 || surfaceLocal >= CHUNK_SIZE - 1) continue;
         const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
         if (surfBlock !== biomeDef.surfaceBlock) continue;
-      }
-
-      // Cactus (desert) — no tree biomes overlap, so no mask needed.
-      if (biomeDef.cactus) {
-        const treeVal = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
-        const normalised = (treeVal + 1) * 0.5;
-        if (normalised < 0.04 * config.params.vegetation.treeDensity && surfaceLocal >= 0) {
-          placeCactus(data, lx, surfaceLocal, lz);
-        }
+        placeCactus(data, lx, surfaceLocal, lz, wx, wz);
+        treeMask[lz * CHUNK_SIZE + lx] = 1;
         continue;
       }
 
-      if (!treeMask[colIdx]) continue;
+      if (biomeDef.treeWood === null || biomeDef.treeLeaves === null) continue;
 
-      const wood = biomeDef.treeWood!;
-      const leaves = biomeDef.treeLeaves!;
-      if (wood === Block.SpruceWood) {
-        placeSpruceTree(data, lx, surfaceLocal, lz, wood, leaves);
-      } else if (wood === Block.BirchWood) {
-        placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves);
-      } else {
-        placeOakTree(data, lx, surfaceLocal, lz, wood, leaves);
+      const accept = Math.min(1, (biomeDef.treeDensity * userVeg) / GLOBAL_TREE_DENSITY);
+      if (unitHash(wx, wz) >= accept) continue;
+
+      if (surfaceLocal >= CHUNK_SIZE) continue;          // canopy entirely above us
+      if (surfaceLocal + MAX_TREE_REACH < 0) continue;   // canopy ends below us
+
+      // Minecraft-style anchor: convert grass under the trunk to dirt, and
+      // patch cave holes at the surface so trunks never float over voids.
+      // Snow-surface biomes (Tundra) keep snow under the trunk and patch
+      // voids with snow rather than incongruous dirt.
+      // Only the chunk owning the trunk performs this; halo neighbours don't.
+      if (inChunk && surfaceLocal >= 0 && surfaceLocal < CHUNK_SIZE) {
+        const surfIdx = chunkIndex(lx, surfaceLocal, lz);
+        const sb = data[surfIdx];
+        if (sb === Block.Air) {
+          data[surfIdx] = biomeDef.surfaceBlock === Block.Snow ? Block.Snow : biomeDef.subSurfaceBlock;
+        } else if (sb === biomeDef.surfaceBlock && sb !== Block.Snow) {
+          data[surfIdx] = biomeDef.subSurfaceBlock;
+        }
       }
+
+      const wood = biomeDef.treeWood;
+      const leaves = biomeDef.treeLeaves;
+      if (wood === Block.SpruceWood) {
+        placeSpruceTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      } else if (wood === Block.BirchWood) {
+        placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      } else {
+        placeOakTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      }
+
+      if (inChunk) treeMask[lz * CHUNK_SIZE + lx] = 1;
     }
   }
 

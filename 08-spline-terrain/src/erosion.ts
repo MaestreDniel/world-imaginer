@@ -121,107 +121,140 @@ function buildBrush(radius: number): { offsets: [number, number][]; weights: num
 /**
  * Run hydraulic erosion on a heightmap in place.
  *
- * @param map      Float64Array of size*size heights (row-major, z*size+x)
- * @param size     Width and height of the heightmap
- * @param config   Erosion parameters
- * @param rngSeed  Deterministic seed for droplet placement
+ * Droplets are spawned deterministically per *world* cell, not per chunk.
+ * The same world cell yields the same droplet (spawn position, sub-cell
+ * offset, and therefore trajectory) regardless of which chunk's padded
+ * heightmap is being eroded. This eliminates one source of chunk-grid
+ * artifacts: when neighbouring chunks' pads overlap, the shared cells
+ * contribute identical droplet histories on both sides of the seam.
+ *
+ * (Droplets that originate outside a chunk's pad still don't reach it,
+ * so a residual seam can remain — that's addressed by enlarging the pad.)
+ *
+ * @param map           Float64Array of size*size heights (row-major, z*size+x)
+ * @param size          Width and height of the heightmap
+ * @param worldOriginX  World X coordinate of map column 0
+ * @param worldOriginZ  World Z coordinate of map row 0
+ * @param config        Erosion parameters
+ * @param worldSeed     World seed; mixed into the per-cell hashes
  */
 export function erode(
   map: Float64Array,
   size: number,
+  worldOriginX: number,
+  worldOriginZ: number,
   config: ErosionConfig = DEFAULT_EROSION,
-  rngSeed: number = 42,
+  worldSeed: number = 42,
 ): void {
   const { offsets, weights } = buildBrush(config.erosionRadius);
 
-  // Simple LCG for deterministic droplet positions
-  let s = rngSeed >>> 0;
-  const rng = () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0x100000000;
+  const margin = config.erosionRadius + 1;
+  // Fixed reference area decouples the user-facing `droplets` value from
+  // pad size: enlarging the pad no longer dilutes per-world-cell density,
+  // so a `droplets=50` setting produces the same visual intensity whether
+  // the pad is 8 or 48. 676 = 26² (interior of the historical pad=8).
+  const REF_INTERIOR_AREA = 676;
+  const density = config.droplets / REF_INTERIOR_AREA;
+  const seedMix = worldSeed | 0;
+
+  // Three independent hashes per (wx, wz): spawn coin, sub-cell X, sub-cell Y.
+  // Plain integer-mix hashes — same form used elsewhere in the project.
+  const hash01 = (wx: number, wz: number, salt: number): number => {
+    let h = (Math.imul(wx | 0, 374761393) ^ Math.imul(wz | 0, 668265263) ^ Math.imul(seedMix ^ salt, 2654435761)) | 0;
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
   };
 
-  const margin = config.erosionRadius + 1;
+  // Iterate every interior cell of the padded heightmap. Each world cell
+  // either spawns one droplet (with deterministic sub-cell offset) or not.
+  // Iteration order (row-major in world coords) is identical for any chunk
+  // whose pad covers this region, so droplet ordering is consistent across
+  // chunks for the cells they share.
+  for (let py = margin; py < size - margin; py++) {
+    const wz = worldOriginZ + py;
+    for (let px = margin; px < size - margin; px++) {
+      const wx = worldOriginX + px;
+      if (hash01(wx, wz, 0) >= density) continue;
 
-  for (let drop = 0; drop < config.droplets; drop++) {
-    // Spawn droplet at random position (avoid edges)
-    let posX = margin + rng() * (size - 2 * margin);
-    let posY = margin + rng() * (size - 2 * margin);
-    let dirX = 0;
-    let dirY = 0;
-    let speed = 0;
-    let water = 1;
-    let sediment = 0;
+      let posX = px + hash01(wx, wz, 0x9e3779b1);
+      let posY = py + hash01(wx, wz, 0x85ebca6b);
+      let dirX = 0;
+      let dirY = 0;
+      let speed = 0;
+      let water = 1;
+      let sediment = 0;
 
-    for (let life = 0; life < config.maxLifetime; life++) {
-      const xi = Math.floor(posX);
-      const yi = Math.floor(posY);
+      for (let life = 0; life < config.maxLifetime; life++) {
+        const xi = Math.floor(posX);
+        const yi = Math.floor(posY);
 
-      if (xi < margin || xi >= size - margin || yi < margin || yi >= size - margin) break;
+        if (xi < margin || xi >= size - margin || yi < margin || yi >= size - margin) break;
 
-      const oldHeight = sampleHeight(map, size, posX, posY);
-      const [gx, gy] = sampleGradient(map, size, posX, posY);
+        const oldHeight = sampleHeight(map, size, posX, posY);
+        const [gx, gy] = sampleGradient(map, size, posX, posY);
 
-      // Update direction with inertia
-      dirX = dirX * config.inertia - gx * (1 - config.inertia);
-      dirY = dirY * config.inertia - gy * (1 - config.inertia);
+        // Update direction with inertia
+        dirX = dirX * config.inertia - gx * (1 - config.inertia);
+        dirY = dirY * config.inertia - gy * (1 - config.inertia);
 
-      // Normalise direction
-      const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
-      if (dirLen < 1e-8) break; // stuck in a pit
-      dirX /= dirLen;
-      dirY /= dirLen;
+        // Normalise direction
+        const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+        if (dirLen < 1e-8) break; // stuck in a pit
+        dirX /= dirLen;
+        dirY /= dirLen;
 
-      // Move
-      const newX = posX + dirX;
-      const newY = posY + dirY;
-      const newHeight = sampleHeight(map, size, newX, newY);
-      const heightDiff = newHeight - oldHeight;
+        // Move
+        const newX = posX + dirX;
+        const newY = posY + dirY;
+        const newHeight = sampleHeight(map, size, newX, newY);
+        const heightDiff = newHeight - oldHeight;
 
-      // Capacity: how much sediment water can carry (more when fast and steep)
-      const slope = Math.max(-heightDiff, config.minSlope);
-      const capacity = Math.max(slope * speed * water * 8, config.minSlope);
+        // Capacity: how much sediment water can carry (more when fast and steep)
+        const slope = Math.max(-heightDiff, config.minSlope);
+        const capacity = Math.max(slope * speed * water * 8, config.minSlope);
 
-      if (sediment > capacity || heightDiff > 0) {
-        // Deposit sediment
-        const depositAmount = heightDiff > 0
-          ? Math.min(sediment, heightDiff) // fill up to new height when going uphill
-          : (sediment - capacity) * config.depositionRate;
+        if (sediment > capacity || heightDiff > 0) {
+          // Deposit sediment
+          const depositAmount = heightDiff > 0
+            ? Math.min(sediment, heightDiff) // fill up to new height when going uphill
+            : (sediment - capacity) * config.depositionRate;
 
-        sediment -= depositAmount;
+          sediment -= depositAmount;
 
-        // Deposit on the 4 surrounding cells (bilinear)
-        const fx = posX - xi;
-        const fy = posY - yi;
-        map[yi * size + xi]           += depositAmount * (1 - fx) * (1 - fy);
-        map[yi * size + xi + 1]       += depositAmount * fx * (1 - fy);
-        map[(yi + 1) * size + xi]     += depositAmount * (1 - fx) * fy;
-        map[(yi + 1) * size + xi + 1] += depositAmount * fx * fy;
-      } else {
-        // Erode terrain using the brush
-        const erodeAmount = Math.min(
-          (capacity - sediment) * config.erosionRate,
-          -heightDiff + 0.001, // don't erode below new position
-        );
+          // Deposit on the 4 surrounding cells (bilinear)
+          const fx = posX - xi;
+          const fy = posY - yi;
+          map[yi * size + xi]           += depositAmount * (1 - fx) * (1 - fy);
+          map[yi * size + xi + 1]       += depositAmount * fx * (1 - fy);
+          map[(yi + 1) * size + xi]     += depositAmount * (1 - fx) * fy;
+          map[(yi + 1) * size + xi + 1] += depositAmount * fx * fy;
+        } else {
+          // Erode terrain using the brush
+          const erodeAmount = Math.min(
+            (capacity - sediment) * config.erosionRate,
+            -heightDiff + 0.001, // don't erode below new position
+          );
 
-        for (let b = 0; b < offsets.length; b++) {
-          const [bx, by] = offsets[b];
-          const mx = xi + bx;
-          const my = yi + by;
-          if (mx >= 0 && mx < size && my >= 0 && my < size) {
-            map[my * size + mx] -= erodeAmount * weights[b];
+          for (let b = 0; b < offsets.length; b++) {
+            const [bx, by] = offsets[b];
+            const mx = xi + bx;
+            const my = yi + by;
+            if (mx >= 0 && mx < size && my >= 0 && my < size) {
+              map[my * size + mx] -= erodeAmount * weights[b];
+            }
           }
+
+          sediment += erodeAmount;
         }
 
-        sediment += erodeAmount;
+        // Update speed and water
+        speed = Math.sqrt(Math.max(0, speed * speed - heightDiff * config.gravity));
+        water *= (1 - config.evaporationRate);
+
+        posX = newX;
+        posY = newY;
       }
-
-      // Update speed and water
-      speed = Math.sqrt(Math.max(0, speed * speed - heightDiff * config.gravity));
-      water *= (1 - config.evaporationRate);
-
-      posX = newX;
-      posY = newY;
     }
   }
 }

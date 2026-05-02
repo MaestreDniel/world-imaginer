@@ -62,11 +62,11 @@ const SECTIONS: SectionDef[] = [
     id: "erosion", label: "Erosion", paramsKey: "erosion", expanded: true,
     toggle: { key: "enabled", label: "Enabled" },
     sliders: [
-      { key: "droplets",        label: "Droplets",         min: 0,    max: 500, step: 5,    decimals: 0 },
+      { key: "droplets",        label: "Droplets",         min: 0,    max: 100, step: 5,    decimals: 0 },
       { key: "erosionRate",     label: "Erosion Rate",     min: 0,    max: 1,    step: 0.01,  decimals: 2 },
       { key: "depositionRate",  label: "Deposition Rate",  min: 0,    max: 1,    step: 0.01,  decimals: 2 },
       { key: "inertia",         label: "Inertia",          min: 0,    max: 1,    step: 0.01,  decimals: 2 },
-      { key: "maxLifetime",     label: "Max Lifetime",     min: 10,   max: 200,  step: 1,     decimals: 0 },
+      { key: "maxLifetime",     label: "Max Lifetime",     min: 10,   max: 100,  step: 1,     decimals: 0 },
       { key: "evaporationRate", label: "Evaporation Rate", min: 0,    max: 0.1,  step: 0.005, decimals: 3 },
       { key: "gravity",         label: "Gravity",          min: 1,    max: 30,   step: 1,     decimals: 0 },
     ],

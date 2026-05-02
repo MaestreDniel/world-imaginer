@@ -142,7 +142,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Savanna",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.10, cactus: false,
+    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.05, cactus: false,
     decorationDensity: 0.18,
     decorations: [
       { block: Block.Bush,         weight: 0.4 },
@@ -154,7 +154,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Plains",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.15, cactus: false,
+    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.01, cactus: false,
     decorationDensity: 0.22,
     decorations: [
       { block: Block.TallGrass,    weight: 0.50 },
@@ -167,7 +167,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Forest",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.35, cactus: false,
+    treeWood: Block.OakWood, treeLeaves: Block.OakLeaves, treeDensity: 0.23, cactus: false,
     decorationDensity: 0.20,
     decorations: [
       { block: Block.TallGrass, weight: 0.4 },
@@ -180,7 +180,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Birch Forest",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.BirchWood, treeLeaves: Block.BirchLeaves, treeDensity: 0.25, cactus: false,
+    treeWood: Block.BirchWood, treeLeaves: Block.BirchLeaves, treeDensity: 0.16, cactus: false,
     decorationDensity: 0.20,
     decorations: [
       { block: Block.TallGrass,    weight: 0.40 },
@@ -193,7 +193,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Taiga",
     surfaceBlock: Block.Grass,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.30, cactus: false,
+    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.10, cactus: false,
     decorationDensity: 0.22,
     decorations: [
       { block: Block.Fern,      weight: 0.6 },
@@ -205,18 +205,19 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     name: "Tundra",
     surfaceBlock: Block.Snow,
     subSurfaceBlock: Block.Dirt,
-    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.03, cactus: false,
-    decorationDensity: 0.04,
+    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.0005, cactus: false,
+    decorationDensity: 0.1,
     decorations: [
       { block: Block.TallGrass,  weight: 0.7 },
-      { block: Block.FlowerBlue, weight: 0.3 },
+      { block: Block.DeadBush, weight: 0.2 },
+      { block: Block.FlowerBlue, weight: 0.1 },
     ],
   },
   [Biome.Mountains]: {
     name: "Mountains",
     surfaceBlock: Block.Stone,
     subSurfaceBlock: Block.Stone,
-    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.10, cactus: false,
+    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.07, cactus: false,
     decorationDensity: 0.10,
     decorations: [
       { block: Block.TallGrass,    weight: 0.6 },

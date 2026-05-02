@@ -218,9 +218,11 @@ export function buildChunkMesh(
           const v0 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD) / atlasH + htV;
           const v1 = (tRow * ATLAS_TILE_PADDED + ATLAS_TILE_PAD + ATLAS_TILE_SIZE) / atlasH - htV;
 
-          // ── Vertex color (white unless grass top/side for biome tint) ────
+          // ── Vertex color (white unless grass top for biome tint) ─────────
+          // Side faces stay untinted so the dirt strip at the bottom of
+          // GrassSide matches the standalone Dirt block exactly.
           let packedColor = 0xFFFFFF;
-          if (block === Block.Grass && faceType !== "bottom") {
+          if (block === Block.Grass && faceType === "top") {
             packedColor = grassColors[pos[2] * CHUNK_SIZE + pos[0]];
           }
           const r = ((packedColor >> 16) & 255) / 255;

@@ -30,9 +30,9 @@ function makeForcer(data: ChunkData): SetBlock {
 
 // ── Trees ──────────────────────────────────────────────────────
 
-export function placeOakTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number): void {
+export function placeOakTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number, seedX: number = x, seedZ: number = z): void {
   const set = makeSetter(data);
-  const trunkH = 4 + (((x * 73 + z * 37) & 3));
+  const trunkH = 4 + (((seedX * 73 + seedZ * 37) & 3));
 
   for (let dy = 1; dy <= trunkH; dy++) set(x, surfaceY + dy, z, woodBlock);
 
@@ -50,9 +50,9 @@ export function placeOakTree(data: ChunkData, x: number, surfaceY: number, z: nu
   }
 }
 
-export function placeSpruceTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number): void {
+export function placeSpruceTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number, seedX: number = x, seedZ: number = z): void {
   const set = makeSetter(data);
-  const trunkH = 6 + (((x * 53 + z * 29) & 3));
+  const trunkH = 6 + (((seedX * 53 + seedZ * 29) & 3));
 
   for (let dy = 1; dy <= trunkH; dy++) set(x, surfaceY + dy, z, woodBlock);
 
@@ -72,9 +72,9 @@ export function placeSpruceTree(data: ChunkData, x: number, surfaceY: number, z:
   set(x, surfaceY + trunkH + 1, z, leafBlock);
 }
 
-export function placeBirchTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number): void {
+export function placeBirchTree(data: ChunkData, x: number, surfaceY: number, z: number, woodBlock: number, leafBlock: number, seedX: number = x, seedZ: number = z): void {
   const set = makeSetter(data);
-  const trunkH = 5 + (((x * 61 + z * 43) & 3));
+  const trunkH = 5 + (((seedX * 61 + seedZ * 43) & 3));
 
   for (let dy = 1; dy <= trunkH; dy++) set(x, surfaceY + dy, z, woodBlock);
 
@@ -91,9 +91,9 @@ export function placeBirchTree(data: ChunkData, x: number, surfaceY: number, z: 
   }
 }
 
-export function placeCactus(data: ChunkData, x: number, surfaceY: number, z: number): void {
+export function placeCactus(data: ChunkData, x: number, surfaceY: number, z: number, seedX: number = x, seedZ: number = z): void {
   const set = makeSetter(data);
-  const h = 2 + (((x * 47 + z * 31) & 1));
+  const h = 2 + (((seedX * 47 + seedZ * 31) & 1));
   for (let dy = 1; dy <= h; dy++) set(x, surfaceY + dy, z, Block.Cactus);
 }
 

@@ -101,16 +101,19 @@ export interface BiomeDef {
 }
 
 export const Biome = {
-  Ocean:     0,
-  Beach:     1,
-  Desert:    2,
-  Savanna:   3,
-  Plains:    4,
-  Forest:    5,
-  BirchForest: 6,
-  Taiga:     7,
-  Tundra:    8,
-  Mountains: 9,
+  Ocean:          0,
+  Beach:          1,
+  Desert:         2,
+  Savanna:        3,
+  Plains:         4,
+  Forest:         5,
+  BirchForest:    6,
+  Taiga:          7,
+  Tundra:         8,
+  Mountains:      9,
+  StonyPeaks:    10,
+  WindsweptHills:11,
+  FrozenOcean:   12,
 } as const;
 
 export type BiomeId = (typeof Biome)[keyof typeof Biome];
@@ -223,6 +226,31 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.TallGrass,    weight: 0.6 },
       { block: Block.FlowerYellow, weight: 0.4 },
     ],
+  },
+  [Biome.StonyPeaks]: {
+    name: "Stony Peaks",
+    surfaceBlock: Block.Stone,
+    subSurfaceBlock: Block.Stone,
+    treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
+    decorationDensity: 0, decorations: [],
+  },
+  [Biome.WindsweptHills]: {
+    name: "Windswept Hills",
+    surfaceBlock: Block.Grass,
+    subSurfaceBlock: Block.Dirt,
+    treeWood: Block.SpruceWood, treeLeaves: Block.SpruceLeaves, treeDensity: 0.02, cactus: false,
+    decorationDensity: 0.08,
+    decorations: [
+      { block: Block.TallGrass, weight: 0.7 },
+      { block: Block.Fern,      weight: 0.3 },
+    ],
+  },
+  [Biome.FrozenOcean]: {
+    name: "Frozen Ocean",
+    surfaceBlock: Block.Sand,
+    subSurfaceBlock: Block.Sand,
+    treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
+    decorationDensity: 0, decorations: [],
   },
 };
 

@@ -10,7 +10,7 @@
  * Surface and cave biomes use separate registries with the same picker.
  */
 
-import { Biome, type BiomeId } from "./biomes";
+import { Biome, CaveBiome, type BiomeId, type CaveBiomeId } from "./biomes";
 
 export const Axis = {
   Temperature:  0,
@@ -202,5 +202,26 @@ export const SURFACE_REGISTRY: ReadonlyArray<BiomeBoxEntry<BiomeId>> = [
       temperature: [-1, -0.15], humidity: [-1, 0.05],
       continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
+  }},
+];
+
+/**
+ * Cave biome registry. Runs once per carved cave voxel. Order matters
+ * for tie-breaking; LushCaves first so warm + humid + deep voxels pick
+ * it over the Stone default.
+ *
+ * Cave biomes use depth band [0.1, 1.0] (≈ 6 blocks below surface and
+ * deeper).
+ */
+export const CAVE_REGISTRY: ReadonlyArray<BiomeBoxEntry<CaveBiomeId>> = [
+  { id: CaveBiome.LushCaves, box: {
+      temperature: [ 0.0, 1],   humidity: [ 0.2, 1],
+      continent:   [-0.2, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [ 0.1, 1.0],
+  }},
+  { id: CaveBiome.Stone, box: {
+      temperature: [-1, 1], humidity: [-1, 1],
+      continent:   [-1, 1], erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [ 0.1, 1.0],
   }},
 ];

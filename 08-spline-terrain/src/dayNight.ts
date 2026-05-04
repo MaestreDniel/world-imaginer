@@ -33,7 +33,7 @@ export function createDayNightState(): DayNightState {
   return {
     t: 0.25,            // mid-day
     paused: false,
-    cycleLengthSeconds: 120,
+    cycleLengthSeconds: 240,
     nightMin: 4,
   };
 }

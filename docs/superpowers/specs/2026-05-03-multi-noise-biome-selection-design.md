@@ -192,7 +192,7 @@ export const DEFAULT_AXIS_WEIGHTS: GlobalAxisWeights = {
 };
 
 export const DEFAULT_BIOME_PICKER: BiomePickerParams = {
-  weights:    DEFAULT_AXIS_WEIGHTS,
+  weights:    { ...DEFAULT_AXIS_WEIGHTS },
   depthScale: 64,
 };
 ```

@@ -80,3 +80,48 @@ export const DEFAULT_BIOME_PICKER: BiomePickerParams = {
   weights:    { ...DEFAULT_AXIS_WEIGHTS },
   depthScale: 64,
 };
+
+function axisDistance(value: number, range: [number, number]): number {
+  if (value < range[0]) return range[0] - value;
+  if (value > range[1]) return value - range[1];
+  return 0;
+}
+
+/**
+ * Sum of weighted-squared per-axis overshoots. A point inside the box
+ * on every axis scores 0 (always wins). A point outside scores the sum
+ * of squared, weighted overshoot distances.
+ */
+export function fitness(
+  point: ClimatePoint,
+  box: BiomeBox,
+  w: GlobalAxisWeights,
+  depthScale: number,
+): number {
+  const dT = axisDistance(point.temperature,             box.temperature)  * w.temperature;
+  const dH = axisDistance(point.humidity,                box.humidity)     * w.humidity;
+  const dC = axisDistance(point.continent,               box.continent)    * w.continent;
+  const dE = axisDistance(point.erosion,                 box.erosion)      * w.erosion;
+  const dP = axisDistance(point.peaksValleys,            box.peaksValleys) * w.peaksValleys;
+  const dD = axisDistance(point.depthBlocks / depthScale, box.depth)       * w.depth;
+  return dT*dT + dH*dH + dC*dC + dE*dE + dP*dP + dD*dD;
+}
+
+/**
+ * Linear scan: returns the id of the registry entry with minimum
+ * fitness. Strict `<` means earlier entries win ties, so registry
+ * order is part of the design.
+ */
+export function pickBiome<Id extends number>(
+  point: ClimatePoint,
+  registry: ReadonlyArray<BiomeBoxEntry<Id>>,
+  params: BiomePickerParams,
+): Id {
+  let bestId    = registry[0].id;
+  let bestScore = fitness(point, registry[0].box, params.weights, params.depthScale);
+  for (let i = 1; i < registry.length; i++) {
+    const score = fitness(point, registry[i].box, params.weights, params.depthScale);
+    if (score < bestScore) { bestScore = score; bestId = registry[i].id; }
+  }
+  return bestId;
+}

@@ -307,6 +307,7 @@ export function buildAtlasTexture(): THREE.CanvasTexture {
     [TILE_IDS.Glass,        0xCCE8F0, 0.03],
     [TILE_IDS.Lava,         0xFF6600, 0.08],
     [TILE_IDS.Glowstone,    0xFFDD44, 0.08],
+    [TILE_IDS.Moss,         0x4F8B3C, 0.10],
   ];
 
   for (const [idx, color, variance] of noiseTiles) {

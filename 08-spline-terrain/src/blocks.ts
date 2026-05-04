@@ -41,6 +41,7 @@ export const Block = {
   FlowerRed:    32,
   FlowerYellow: 33,
   FlowerBlue:   34,
+  Moss:         35,
 } as const;
 
 // ── Atlas layout ──────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ export const TILE_IDS = {
   FlowerRed:    35,
   FlowerYellow: 36,
   FlowerBlue:   37,
+  Moss:         38,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
@@ -260,5 +262,9 @@ export const BLOCK_DEFS: Record<number, BlockDef> = {
     name: "Blue Flower", color: 0x5C7CC8, solid: false, transparent: true, lightEmit: 0,
     renderShape: "cross",
     tiles: { top: TILE_IDS.FlowerBlue, side: TILE_IDS.FlowerBlue, bottom: TILE_IDS.FlowerBlue },
+  },
+  [Block.Moss]: {
+    name: "Moss", color: 0x4F8B3C, solid: true, transparent: false, lightEmit: 0,
+    tiles: { top: TILE_IDS.Moss, side: TILE_IDS.Moss, bottom: TILE_IDS.Moss },
   },
 };

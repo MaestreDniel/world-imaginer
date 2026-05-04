@@ -254,6 +254,23 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
   },
 };
 
+export const CaveBiome = {
+  Stone:     0,
+  LushCaves: 1,
+} as const;
+export type CaveBiomeId = (typeof CaveBiome)[keyof typeof CaveBiome];
+
+export interface CaveBiomeDef {
+  name: string;
+  floorBlock: number;
+  wallBlock:  number;
+}
+
+export const CAVE_BIOME_DEFS: Record<number, CaveBiomeDef> = {
+  [CaveBiome.Stone]:     { name: "Stone",      floorBlock: Block.Stone, wallBlock: Block.Stone },
+  [CaveBiome.LushCaves]: { name: "Lush Caves", floorBlock: Block.Moss,  wallBlock: Block.Stone },
+};
+
 
 export function createBiomeSampler(seed: number, biomeParams: BiomeParams = DEFAULT_PARAMS.biomes) {
   const tempNoise  = createNoise(seed + 10);

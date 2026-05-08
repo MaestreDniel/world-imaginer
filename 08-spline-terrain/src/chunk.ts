@@ -231,7 +231,7 @@ export function generateChunk(
 
         // Ice on water in cold biomes
         if (wy === waterLevel && data[voxIdx] === Block.Water) {
-          if (biome === Biome.Tundra || biome === Biome.Taiga) {
+          if (biome === Biome.Tundra || biome === Biome.Taiga || biome === Biome.FrozenOcean) {
             block = Block.Ice;
           }
         }

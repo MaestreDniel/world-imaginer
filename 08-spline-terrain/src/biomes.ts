@@ -2,7 +2,12 @@ import { Block } from "./blocks";
 import { createNoise } from "./perlin";
 import { type BiomeParams, type GenerationParams, DEFAULT_PARAMS } from "./generationParams";
 import { createTerrainShaper } from "./terrainShape";
-import { pickBiome, type ClimatePoint, type BiomePickerParams, SURFACE_REGISTRY } from "./biomeBoxes";
+import {
+  pickBiome,
+  type ClimatePoint,
+  type BiomePickerParams,
+  type BiomeBoxEntry,
+} from "./biomeBoxes";
 
 /**
  * Grass color gradient — maps (temperature, humidity) to a packed 0xRRGGBB color.
@@ -404,3 +409,101 @@ export function createBiomeDebugSampler(seed: number, params: GenerationParams, 
     };
   };
 }
+
+/**
+ * Surface biome registry. Order matters for tie-breaking (earlier wins).
+ * Most specific first (FrozenOcean before Ocean), most general last
+ * (the temperate matrix replacement).
+ *
+ * The five climate axes use [-1, +1]. Depth uses normalized units
+ * (raw blocks ÷ depthScale=64). Surface biomes use depth band
+ * [-0.1, +0.1] (≈ surface ± 6 blocks).
+ */
+export const SURFACE_REGISTRY: ReadonlyArray<BiomeBoxEntry<BiomeId>> = [
+  { id: Biome.FrozenOcean, box: {
+      temperature: [-1.0, -0.3], humidity: [-1, 1],
+      continent:   [-1, -0.25],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Ocean, box: {
+      temperature: [-1, 1],      humidity: [-1, 1],
+      continent:   [-1, -0.25],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Beach, box: {
+      temperature: [-1, 1],          humidity: [-1, 1],
+      continent:   [-0.25, -0.05],   erosion:  [-1, 1], peaksValleys: [-1, 0],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.StonyPeaks, box: {
+      temperature: [-1, 0.2],   humidity: [-1, 1],
+      continent:   [ 0.4, 1],   erosion:  [-1, -0.5], peaksValleys: [ 0.3, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Mountains, box: {
+      temperature: [-1, 1],     humidity: [-1, 1],
+      continent:   [ 0.2, 1],   erosion:  [-1, -0.4], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.WindsweptHills, box: {
+      temperature: [-1, 1],     humidity: [-1, 1],
+      continent:   [ 0.0, 1],   erosion:  [-0.6, -0.2], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Desert, box: {
+      temperature: [ 0.2, 1],   humidity: [-1, 0.15],
+      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Savanna, box: {
+      temperature: [ 0.2, 1],   humidity: [ 0.15, 1],
+      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Forest, box: {
+      temperature: [-0.15, 0.2], humidity: [ 0.2, 1],
+      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.BirchForest, box: {
+      temperature: [-0.15, 0.2], humidity: [-0.1, 0.2],
+      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Plains, box: {
+      temperature: [-0.15, 0.2], humidity: [-1, -0.1],
+      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Taiga, box: {
+      temperature: [-1, -0.15], humidity: [ 0.05, 1],
+      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+  { id: Biome.Tundra, box: {
+      temperature: [-1, -0.15], humidity: [-1, 0.05],
+      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [-0.1, 0.1],
+  }},
+];
+
+/**
+ * Cave biome registry. Runs once per carved cave voxel. Order matters
+ * for tie-breaking; LushCaves first so warm + humid + deep voxels pick
+ * it over the Stone default.
+ *
+ * Cave biomes use depth band [0.1, 1.0] (≈ 6 blocks below surface and
+ * deeper).
+ */
+export const CAVE_REGISTRY: ReadonlyArray<BiomeBoxEntry<CaveBiomeId>> = [
+  { id: CaveBiome.LushCaves, box: {
+      temperature: [ 0.0, 1],   humidity: [ 0.2, 1],
+      continent:   [-0.2, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [ 0.1, 1.0],
+  }},
+  { id: CaveBiome.Stone, box: {
+      temperature: [-1, 1], humidity: [-1, 1],
+      continent:   [-1, 1], erosion:  [-1, 1], peaksValleys: [-1, 1],
+      depth:       [ 0.1, 1.0],
+  }},
+];

@@ -3,9 +3,9 @@ import { createNoise } from "./perlin";
 import {
   createBiomeSampler, BIOME_DEFS, Biome, classifyBiome, computeBlendedGrassColors,
   type BiomeId,
-  CAVE_BIOME_DEFS, type CaveBiomeId,
+  CAVE_BIOME_DEFS, type CaveBiomeId, CAVE_REGISTRY,
 } from "./biomes";
-import { pickBiome, type ClimatePoint, CAVE_REGISTRY } from "./biomeBoxes";
+import { pickBiome, type ClimatePoint } from "./biomeBoxes";
 import { createTerrainShaper } from "./terrainShape";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
 import { erode } from "./erosion";

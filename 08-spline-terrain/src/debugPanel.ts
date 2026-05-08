@@ -16,8 +16,8 @@ import {
   X_RANGE,
 } from "./splineEditor";
 import type { DayNightState, DayNightFrame } from "./dayNight";
-import { SURFACE_REGISTRY, CAVE_REGISTRY, type BiomeBox } from "./biomeBoxes";
-import { BIOME_DEFS, CAVE_BIOME_DEFS } from "./biomes";
+import { type BiomeBox } from "./biomeBoxes";
+import { BIOME_DEFS, CAVE_BIOME_DEFS, SURFACE_REGISTRY, CAVE_REGISTRY } from "./biomes";
 
 // ── Slider definition metadata ─────────────────────────────────────
 interface SliderDef {

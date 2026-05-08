@@ -3,7 +3,9 @@ import { createNoise } from "./perlin";
 import {
   createBiomeSampler, BIOME_DEFS, Biome, classifyBiome, computeBlendedGrassColors,
   type BiomeId,
+  CAVE_BIOME_DEFS, type CaveBiomeId,
 } from "./biomes";
+import { pickBiome, type ClimatePoint, CAVE_REGISTRY } from "./biomeBoxes";
 import { createTerrainShaper } from "./terrainShape";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
 import { erode } from "./erosion";
@@ -79,6 +81,12 @@ export function generateChunk(
   const heights = new Float64Array(CHUNK_SIZE * CHUNK_SIZE);
   const biomes  = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
 
+  const colTemp     = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colHumid    = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colContinent= new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colErosion  = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colPV       = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+
   for (let lz = 0; lz < CHUNK_SIZE; lz++) {
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const wx = worldXOff + lx;
@@ -92,6 +100,11 @@ export function generateChunk(
         sample.continentalness, sample.erosion, sample.peaksValleys,
         temp, humid, config.params.biomePicker,
       );
+      colTemp[idx]      = temp;
+      colHumid[idx]     = humid;
+      colContinent[idx] = sample.continentalness;
+      colErosion[idx]   = sample.erosion;
+      colPV[idx]        = sample.peaksValleys;
     }
   }
 
@@ -252,7 +265,30 @@ export function generateChunk(
               const n2Up = caveNoiseB.fbm3D(wx / caves.scale, yScaledUp, wz / caves.scale, caves.octaves, 0.5, 2.0);
               if (Math.abs(n1Up) >= t || Math.abs(n2Up) >= t) carve = false;
             }
-            if (carve) block = Block.Air;
+            if (carve) {
+              block = Block.Air;
+              // Paint cave-biome floor: when this newly-air cell sits
+              // directly above a solid cell within the same chunk, classify
+              // the cave biome and overwrite that solid cell with the
+              // biome's floorBlock. (Cross-chunk floors at ly=0 are skipped
+              // — minor cosmetic seam, acceptable for this spec.)
+              if (ly > 0) {
+                const belowIdx = chunkIndex(lx, ly - 1, lz);
+                const below = data[belowIdx];
+                if (below !== Block.Air && below !== Block.Water) {
+                  const point: ClimatePoint = {
+                    temperature:  colTemp[colIdx],
+                    humidity:     colHumid[colIdx],
+                    continent:    colContinent[colIdx],
+                    erosion:      colErosion[colIdx],
+                    peaksValleys: colPV[colIdx],
+                    depthBlocks:  surfaceH - wy,
+                  };
+                  const caveId: CaveBiomeId = pickBiome(point, CAVE_REGISTRY, config.params.biomePicker);
+                  data[belowIdx] = CAVE_BIOME_DEFS[caveId].floorBlock;
+                }
+              }
+            }
           }
         }
 

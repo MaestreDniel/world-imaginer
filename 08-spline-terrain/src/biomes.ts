@@ -2,6 +2,7 @@ import { Block } from "./blocks";
 import { createNoise } from "./perlin";
 import { type BiomeParams, type GenerationParams, DEFAULT_PARAMS } from "./generationParams";
 import { createTerrainShaper } from "./terrainShape";
+import { pickBiome, type ClimatePoint, type BiomePickerParams, SURFACE_REGISTRY } from "./biomeBoxes";
 
 /**
  * Grass color gradient — maps (temperature, humidity) to a packed 0xRRGGBB color.
@@ -285,36 +286,28 @@ export function createBiomeSampler(seed: number, biomeParams: BiomeParams = DEFA
   };
 }
 
-function pickTempHumidBiome(temp: number, humid: number): BiomeId {
-  if (temp > 0.2) {
-    return humid > 0.15 ? Biome.Savanna : Biome.Desert;
-  } else if (temp > -0.15) {
-    if (humid > 0.2) return Biome.Forest;
-    if (humid > -0.1) return Biome.BirchForest;
-    return Biome.Plains;
-  } else {
-    return humid > 0.05 ? Biome.Taiga : Biome.Tundra;
-  }
-}
-
 /**
- * Pick a biome using climate noise + the resulting height. Climate-field
- * overrides for Ocean / Beach / Mountains short-circuit; otherwise the
- * existing (temp, humid) matrix applies.
+ * Pick a surface biome from a 6D climate sample. Delegates to
+ * `pickBiome` over `SURFACE_REGISTRY`. Surface columns always pass
+ * `depthBlocks: 0` so the depth axis sits in the surface band.
  */
 export function classifyBiome(
   continentalness: number,
   erosion: number,
+  peaksValleys: number,
   temp: number,
   humid: number,
-  height: number,
-  waterLevel: number,
-  t: { oceanContinentalness: number; coastContinentalness: number; beachBand: number; inlandContinentalness: number; mountainErosion: number },
+  picker: BiomePickerParams,
 ): BiomeId {
-  if (continentalness < t.oceanContinentalness) return Biome.Ocean;
-  if (continentalness < t.coastContinentalness && height < waterLevel + t.beachBand) return Biome.Beach;
-  if (continentalness > t.inlandContinentalness && erosion < t.mountainErosion) return Biome.Mountains;
-  return pickTempHumidBiome(temp, humid);
+  const point: ClimatePoint = {
+    temperature:  temp,
+    humidity:     humid,
+    continent:    continentalness,
+    erosion,
+    peaksValleys,
+    depthBlocks:  0,
+  };
+  return pickBiome(point, SURFACE_REGISTRY, picker);
 }
 
 export const BLEND_RADIUS = 4;
@@ -388,12 +381,7 @@ export interface BiomeDebugInfo {
   height: number;
 }
 
-/**
- * Create a debug sampler that returns climate + spline-derived height + the
- * classified biome. Used by the debug overlay — not called during chunk
- * generation.
- */
-export function createBiomeDebugSampler(seed: number, params: GenerationParams, waterLevel: number) {
+export function createBiomeDebugSampler(seed: number, params: GenerationParams, _waterLevel: number) {
   const terrainShaper = createTerrainShaper(seed, params);
   const tempHumidSampler = createBiomeSampler(seed, params.biomes);
 
@@ -402,8 +390,8 @@ export function createBiomeDebugSampler(seed: number, params: GenerationParams, 
     const height = terrainShaper.heightFromClimate(sample);
     const { temp, humid } = tempHumidSampler(wx, wz);
     const biome = classifyBiome(
-      sample.continentalness, sample.erosion, temp, humid,
-      height, waterLevel, params.shape.biomeClimate,
+      sample.continentalness, sample.erosion, sample.peaksValleys,
+      temp, humid, params.biomePicker,
     );
     return {
       biome,

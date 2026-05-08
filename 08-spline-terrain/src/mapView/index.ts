@@ -103,9 +103,22 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     render();
   };
 
-  const onMouseUp = (_e: MouseEvent) => {
+  const onMouseUp = (e: MouseEvent) => {
+    const wasClick = drag.active && drag.movedPx < 5;
     drag.active = false;
     cfg.canvas.style.cursor = "grab";
+
+    if (!wasClick) return;
+
+    // Determine pixel under cursor relative to the map canvas.
+    const rect = cfg.canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    if (px < 0 || py < 0 || px >= viewport.width || py >= viewport.height) return;
+
+    const { wx, wz } = pixelToWorld(viewport, px, py);
+    const { height } = classify(wx, wz);
+    cfg.onTeleport(wx, wz, height);
   };
 
   // ── Zoom ────────────────────────────────────────────────────────────

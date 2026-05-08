@@ -1,5 +1,5 @@
 import { type GenerationParams } from "../generationParams";
-import { classifyBiome, createBiomeSampler } from "../biomes";
+import { Biome, classifyBiome, createBiomeSampler, BIOME_DEFS, type BiomeId } from "../biomes";
 import { createTerrainShaper } from "../terrainShape";
 import { type Viewport, ZOOM_LEVELS, pixelToWorld, zoomIn, zoomOut } from "./viewport";
 import { renderMap, type ClassifyFn } from "./render";
@@ -19,6 +19,11 @@ export interface MapViewConfig {
   getSeedAndParams: () => { seed: number; params: GenerationParams; waterLevel: number };
   onTeleport:     (wx: number, wz: number, surfaceY: number) => void;
 }
+
+const BIOME_NAMES: Record<BiomeId, string> = Object.fromEntries(
+  Object.entries(BIOME_DEFS).map(([id, def]) => [Number(id), def.name]),
+) as Record<BiomeId, string>;
+void Biome;   // kept around in case a future feature needs the value
 
 function buildClassifier(seed: number, params: GenerationParams): ClassifyFn {
   const shaper  = createTerrainShaper(seed, params);
@@ -119,6 +124,64 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     render();
   };
 
+  // ── Hover tooltip ───────────────────────────────────────────────────
+  let hoverPx = 0;
+  let hoverPy = 0;
+  let hoverActive = false;
+  let hoverFrameQueued = false;
+
+  const onMouseMoveHover = (e: MouseEvent) => {
+    if (drag.active) {
+      cfg.tooltipEl.style.display = "none";
+      return;
+    }
+    const rect = cfg.canvas.getBoundingClientRect();
+    hoverPx = e.clientX - rect.left;
+    hoverPy = e.clientY - rect.top;
+    hoverActive = (hoverPx >= 0 && hoverPy >= 0 && hoverPx < viewport.width && hoverPy < viewport.height);
+    if (!hoverActive) {
+      cfg.tooltipEl.style.display = "none";
+      return;
+    }
+    if (!hoverFrameQueued) {
+      hoverFrameQueued = true;
+      requestAnimationFrame(updateTooltip);
+    }
+  };
+
+  const onMouseLeave = () => {
+    hoverActive = false;
+    cfg.tooltipEl.style.display = "none";
+  };
+
+  function updateTooltip(): void {
+    hoverFrameQueued = false;
+    if (!hoverActive || !isShown) return;
+    const { wx, wz } = pixelToWorld(viewport, hoverPx, hoverPy);
+    // Sample full climate for a richer readout (extra cost is one mousemove sample).
+    const { seed, params } = cfg.getSeedAndParams();
+    const shaper  = createTerrainShaper(seed, params);
+    const climate = createBiomeSampler(seed, params.biomes);
+    const sample = shaper.sampleClimate(wx, wz);
+    const height = shaper.heightFromClimate(sample);
+    const { temp, humid } = climate(wx, wz);
+    const biome = classifyBiome(
+      sample.continentalness, sample.erosion, sample.peaksValleys,
+      temp, humid, params.biomePicker,
+    );
+    const biomeName = BIOME_NAMES[biome] ?? `#${biome}`;
+    cfg.tooltipEl.textContent =
+      `(wx=${wx.toFixed(0)}, wz=${wz.toFixed(0)})\n` +
+      `biome:  ${biomeName}\n` +
+      `height: ${height.toFixed(1)}\n` +
+      `temp:   ${temp.toFixed(2)}   humid: ${humid.toFixed(2)}\n` +
+      `cont:   ${sample.continentalness.toFixed(2)}   eros: ${sample.erosion.toFixed(2)}\n` +
+      `pv:     ${sample.peaksValleys.toFixed(2)}`;
+    cfg.tooltipEl.style.display = "block";
+    cfg.tooltipEl.style.left = `${hoverPx + 16}px`;
+    cfg.tooltipEl.style.top  = `${hoverPy + 80 + 16}px`;   // 80 = toolbar offset
+  }
+
   function show(): void {
     isShown = true;
     cfg.canvas.style.display = "block";
@@ -127,6 +190,8 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     window.addEventListener     ("mousemove", onMouseMoveDrag);
     window.addEventListener     ("mouseup",   onMouseUp);
     cfg.canvas.addEventListener("wheel", onWheel, { passive: false });
+    cfg.canvas.addEventListener("mousemove",  onMouseMoveHover);
+    cfg.canvas.addEventListener("mouseleave", onMouseLeave);
     if (dirty) {
       rebuildClassifier();
       render();
@@ -144,6 +209,8 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     window.removeEventListener    ("mousemove", onMouseMoveDrag);
     window.removeEventListener    ("mouseup",   onMouseUp);
     cfg.canvas.removeEventListener("wheel", onWheel);
+    cfg.canvas.removeEventListener("mousemove",  onMouseMoveHover);
+    cfg.canvas.removeEventListener("mouseleave", onMouseLeave);
   }
 
   function refresh(): void {

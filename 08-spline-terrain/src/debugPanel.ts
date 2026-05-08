@@ -136,6 +136,23 @@ const SECTIONS: SectionDef[] = [
   climateSection("climate-cont", "Climate · Continentalness", "continentalness", 200, 4000, 10),
   climateSection("climate-ero",  "Climate · Erosion",         "erosion",         100, 2000, 10),
   climateSection("climate-pv",   "Climate · Peaks & Valleys", "peaksValleys",     40,  600,  5),
+  {
+    id: "biome-picker",          label: "Biome Picker · Depth", paramsKey: "biomePicker", expanded: false,
+    sliders: [
+      { key: "depthScale", label: "Depth Scale", min: 8, max: 256, step: 1, decimals: 0 },
+    ],
+  },
+  {
+    id: "biome-picker-weights",  label: "Biome Picker · Weights", paramsKey: "biomePicker", subKey: "weights", expanded: false,
+    sliders: [
+      { key: "temperature",  label: "Temperature",   min: 0, max: 4, step: 0.05, decimals: 2 },
+      { key: "humidity",     label: "Humidity",      min: 0, max: 4, step: 0.05, decimals: 2 },
+      { key: "continent",    label: "Continent",     min: 0, max: 4, step: 0.05, decimals: 2 },
+      { key: "erosion",      label: "Erosion",       min: 0, max: 4, step: 0.05, decimals: 2 },
+      { key: "peaksValleys", label: "Peaks/Valleys", min: 0, max: 4, step: 0.05, decimals: 2 },
+      { key: "depth",        label: "Depth",         min: 0, max: 4, step: 0.05, decimals: 2 },
+    ],
+  },
 ];
 
 // ── Preset system ──────────────────────────────────────────────────

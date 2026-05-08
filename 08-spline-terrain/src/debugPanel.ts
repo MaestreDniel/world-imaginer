@@ -16,6 +16,8 @@ import {
   X_RANGE,
 } from "./splineEditor";
 import type { DayNightState, DayNightFrame } from "./dayNight";
+import { SURFACE_REGISTRY, CAVE_REGISTRY, type BiomeBox } from "./biomeBoxes";
+import { BIOME_DEFS, CAVE_BIOME_DEFS } from "./biomes";
 
 // ── Slider definition metadata ─────────────────────────────────────
 interface SliderDef {
@@ -201,6 +203,56 @@ function saveUserPresets(presets: Preset[]): void {
   ));
 }
 
+// ── Biome-box inspector ────────────────────────────────────────────
+function renderBiomeBoxInspector(parent: HTMLElement): void {
+  const container = document.createElement("details");
+  container.className = "panel-section";
+  const summary = document.createElement("summary");
+  summary.textContent = "Biome Boxes (read-only)";
+  container.appendChild(summary);
+
+  const renderRow = (name: string, box: BiomeBox) => {
+    const row = document.createElement("details");
+    row.className = "biome-box-row";
+    const sum = document.createElement("summary");
+    sum.textContent = name;
+    row.appendChild(sum);
+    const list = document.createElement("ul");
+    const fmt = (r: [number, number]) => `[${r[0].toFixed(2)}, ${r[1].toFixed(2)}]`;
+    const axes: Array<[string, [number, number]]> = [
+      ["temperature",  box.temperature],
+      ["humidity",     box.humidity],
+      ["continent",    box.continent],
+      ["erosion",      box.erosion],
+      ["peaksValleys", box.peaksValleys],
+      ["depth",        box.depth],
+    ];
+    for (const [axisName, range] of axes) {
+      const li = document.createElement("li");
+      li.textContent = `${axisName.padEnd(13)} ${fmt(range)}`;
+      list.appendChild(li);
+    }
+    row.appendChild(list);
+    return row;
+  };
+
+  const surfaceHeader = document.createElement("h4");
+  surfaceHeader.textContent = "Surface biomes";
+  container.appendChild(surfaceHeader);
+  for (const entry of SURFACE_REGISTRY) {
+    container.appendChild(renderRow(BIOME_DEFS[entry.id].name, entry.box));
+  }
+
+  const caveHeader = document.createElement("h4");
+  caveHeader.textContent = "Cave biomes";
+  container.appendChild(caveHeader);
+  for (const entry of CAVE_REGISTRY) {
+    container.appendChild(renderRow(CAVE_BIOME_DEFS[entry.id].name, entry.box));
+  }
+
+  parent.appendChild(container);
+}
+
 // ── Panel class ────────────────────────────────────────────────────
 export class DebugPanel {
   private container: HTMLDivElement;
@@ -320,6 +372,8 @@ export class DebugPanel {
     for (const section of SECTIONS) {
       body.appendChild(this.buildSection(section));
     }
+
+    renderBiomeBoxInspector(body);
 
     const splineToolbar = buildSplineShapeToolbar({
       getShape: () => this.params.shape.shape,

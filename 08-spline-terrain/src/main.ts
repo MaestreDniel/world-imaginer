@@ -6,6 +6,7 @@ import { createBiomeSampler, createBiomeDebugSampler, BIOME_DEFS } from "./biome
 import { WalkController, CAMERA_HEIGHT } from "./walkController";
 import { DEFAULT_PARAMS, cloneParams, type GenerationParams } from "./generationParams";
 import { DebugPanel } from "./debugPanel";
+import { createMapView, type MapViewHandle } from "./mapView";
 import {
   createDayNightState,
   tickDayNight,
@@ -114,14 +115,51 @@ let biomeSampler      = createBiomeSampler(currentSeed, currentParams.biomes);
 let biomeDebugSampler = createBiomeDebugSampler(currentSeed, currentParams, DEFAULT_CONFIG.waterLevel);
 let renderRadius = Number(radiusSlider.value);
 
-const debugPanel = new DebugPanel(currentParams, (newParams, randomizeSeed) => {
-  currentParams = newParams;
-  if (randomizeSeed) {
-    currentSeed = randomSeed();
-    seedInput.value = String(currentSeed);
-  }
-  rebuildWorld();
+const mapCanvas       = document.getElementById("map-canvas")        as HTMLCanvasElement;
+const mapTooltip      = document.getElementById("map-tooltip")!;
+const mapCoordReadout = document.getElementById("map-coord-readout")!;
+
+let isMapView = false;
+
+const mapView: MapViewHandle = createMapView({
+  canvas:         mapCanvas,
+  tooltipEl:      mapTooltip,
+  coordReadoutEl: mapCoordReadout,
+  getSeedAndParams: () => ({
+    seed:       currentSeed,
+    params:     currentParams,
+    waterLevel: DEFAULT_CONFIG.waterLevel,
+  }),
+  onTeleport: (wx, wz, surfaceY) => {
+    camera.position.set(wx, surfaceY + 2, wz);
+    controls.target.set(wx, surfaceY + 2, wz);
+  },
 });
+
+function setView(mode: "3d" | "map"): void {
+  isMapView = (mode === "map");
+  if (isMapView) {
+    renderer.domElement.style.display = "none";
+    mapView.show();
+  } else {
+    renderer.domElement.style.display = "block";
+    mapView.hide();
+  }
+}
+
+const debugPanel = new DebugPanel(
+  currentParams,
+  (newParams, randomizeSeed) => {
+    currentParams = newParams;
+    if (randomizeSeed) {
+      currentSeed = randomSeed();
+      seedInput.value = String(currentSeed);
+    }
+    rebuildWorld();
+    mapView.refresh();
+  },
+  setView,
+);
 debugPanel.attachDayNight(dayNightState);
 
 const paramsToggleBtn = document.getElementById("params-toggle") as HTMLButtonElement;
@@ -315,7 +353,9 @@ function animate(timestamp: number) {
       `Height: ${debug.height.toFixed(1)}`;
   }
 
-  renderer.render(scene, camera);
+  if (!isMapView) {
+    renderer.render(scene, camera);
+  }
 
   frameCount++;
   const now = performance.now();

@@ -258,6 +258,7 @@ export class DebugPanel {
   private container: HTMLDivElement;
   private params: GenerationParams;
   private onApply: (params: GenerationParams, randomizeSeed: boolean) => void;
+  private onViewChange: (mode: "3d" | "map") => void;
   private sliderInputs = new Map<string, HTMLInputElement>();
   private sliderValues = new Map<string, HTMLSpanElement>();
   private toggleInputs = new Map<string, HTMLInputElement>();
@@ -280,9 +281,14 @@ export class DebugPanel {
   private dnPhaseReadout:  HTMLSpanElement | null = null;
   private dnDraggingTime = false;
 
-  constructor(params: GenerationParams, onApply: (params: GenerationParams, randomizeSeed: boolean) => void) {
+  constructor(
+    params: GenerationParams,
+    onApply: (params: GenerationParams, randomizeSeed: boolean) => void,
+    onViewChange: (mode: "3d" | "map") => void = () => {},
+  ) {
     this.params = cloneParams(params);
     this.onApply = onApply;
+    this.onViewChange = onViewChange;
     this.presets = [...BUILT_IN_PRESETS, ...loadUserPresets()];
     this.container = this.build();
     document.body.appendChild(this.container);
@@ -368,6 +374,20 @@ export class DebugPanel {
     body.id = "debug-panel-body";
 
     body.appendChild(this.buildPresetRow());
+
+    const viewRow = document.createElement("div");
+    viewRow.style.cssText = "padding:0.4rem 0.6rem; border-bottom:1px solid #333; display:flex; gap:0.8rem; align-items:center; font-size:0.8rem;";
+    viewRow.innerHTML = `
+      <span>View:</span>
+      <label style="cursor:pointer"><input type="radio" name="map-view-mode" value="3d" checked /> 3D</label>
+      <label style="cursor:pointer"><input type="radio" name="map-view-mode" value="map" /> Map</label>
+    `;
+    body.appendChild(viewRow);
+    viewRow.querySelectorAll<HTMLInputElement>("input[name=map-view-mode]").forEach((r) => {
+      r.addEventListener("change", () => {
+        if (r.checked) this.onViewChange(r.value as "3d" | "map");
+      });
+    });
 
     for (const section of SECTIONS) {
       body.appendChild(this.buildSection(section));

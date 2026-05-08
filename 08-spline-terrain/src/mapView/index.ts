@@ -59,10 +59,13 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
 
   function sizeCanvasToViewport(): void {
     // Map canvas fills width below the toolbar (top:80px) and goes to bottom.
+    // Only assign width/height when they actually change — assigning to a
+    // canvas dimension always clears the bitmap and reallocates the backing
+    // store, which is expensive enough to tank pan-drag fps.
     const width  = window.innerWidth;
     const height = window.innerHeight - 80;
-    cfg.canvas.width  = width;
-    cfg.canvas.height = height;
+    if (cfg.canvas.width  !== width)  cfg.canvas.width  = width;
+    if (cfg.canvas.height !== height) cfg.canvas.height = height;
     viewport.width  = width;
     viewport.height = height;
   }
@@ -84,6 +87,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
   // ── Pan ─────────────────────────────────────────────────────────────
   type DragState = { active: boolean; startX: number; startY: number; movedPx: number };
   const drag: DragState = { active: false, startX: 0, startY: 0, movedPx: 0 };
+  let dragFrameQueued = false;
 
   const onMouseDown = (e: MouseEvent) => {
     drag.active = true;
@@ -102,7 +106,16 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     drag.startY = e.clientY;
     viewport.cx -= dx * viewport.blocksPerPixel;
     viewport.cz -= dy * viewport.blocksPerPixel;
-    render();
+    // Coalesce multiple mousemove events per frame: render fires at rAF
+    // cadence so a fast drag doesn't queue up renders that take longer
+    // than the gap between events.
+    if (!dragFrameQueued) {
+      dragFrameQueued = true;
+      requestAnimationFrame(() => {
+        dragFrameQueued = false;
+        render();
+      });
+    }
   };
 
   const onMouseUp = (e: MouseEvent) => {

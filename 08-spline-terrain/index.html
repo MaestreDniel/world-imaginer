@@ -168,6 +168,9 @@
   <div id="crosshair">+</div>
   <div id="lock-overlay">Click to capture mouse<br><small>F — toggle Walk / Fly &nbsp;|&nbsp; Esc — release mouse</small></div>
   <canvas id="canvas"></canvas>
+  <canvas id="map-canvas" style="display:none; position:fixed; left:0; right:0; top:80px; margin:0 auto; background:#0a0a18; cursor:grab;"></canvas>
+  <div id="map-tooltip" style="display:none; position:fixed; background:rgba(0,0,0,0.85); color:#e0e0e0; padding:0.4rem 0.6rem; border-radius:4px; font-family:monospace; font-size:0.75rem; line-height:1.4; pointer-events:none; z-index:25; white-space:pre;"></div>
+  <div id="map-coord-readout" style="display:none; position:fixed; bottom:1rem; right:1rem; background:rgba(0,0,0,0.7); color:#e0e0e0; padding:0.3rem 0.6rem; border-radius:4px; font-family:monospace; font-size:0.75rem; pointer-events:none; z-index:15;"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

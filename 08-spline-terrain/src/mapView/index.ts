@@ -1,7 +1,7 @@
 import { type GenerationParams } from "../generationParams";
 import { classifyBiome, createBiomeSampler } from "../biomes";
 import { createTerrainShaper } from "../terrainShape";
-import { type Viewport, ZOOM_LEVELS } from "./viewport";
+import { type Viewport, ZOOM_LEVELS, pixelToWorld, zoomIn, zoomOut } from "./viewport";
 import { renderMap, type ClassifyFn } from "./render";
 
 export interface MapViewHandle {
@@ -103,6 +103,22 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.style.cursor = "grab";
   };
 
+  // ── Zoom ────────────────────────────────────────────────────────────
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const rect = cfg.canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const before = pixelToWorld(viewport, px, py);
+    const next = e.deltaY < 0 ? zoomIn(viewport.blocksPerPixel) : zoomOut(viewport.blocksPerPixel);
+    if (next === viewport.blocksPerPixel) return;   // already at the end
+    viewport.blocksPerPixel = next;
+    const after = pixelToWorld(viewport, px, py);
+    viewport.cx += before.wx - after.wx;
+    viewport.cz += before.wz - after.wz;
+    render();
+  };
+
   function show(): void {
     isShown = true;
     cfg.canvas.style.display = "block";
@@ -110,6 +126,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.addEventListener("mousedown",  onMouseDown);
     window.addEventListener     ("mousemove", onMouseMoveDrag);
     window.addEventListener     ("mouseup",   onMouseUp);
+    cfg.canvas.addEventListener("wheel", onWheel, { passive: false });
     if (dirty) {
       rebuildClassifier();
       render();
@@ -126,6 +143,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.removeEventListener("mousedown",  onMouseDown);
     window.removeEventListener    ("mousemove", onMouseMoveDrag);
     window.removeEventListener    ("mouseup",   onMouseUp);
+    cfg.canvas.removeEventListener("wheel", onWheel);
   }
 
   function refresh(): void {

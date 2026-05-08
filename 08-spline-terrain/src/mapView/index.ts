@@ -74,13 +74,47 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     dirty = false;
   }
 
+  // ── Pan ─────────────────────────────────────────────────────────────
+  type DragState = { active: boolean; startX: number; startY: number; movedPx: number };
+  const drag: DragState = { active: false, startX: 0, startY: 0, movedPx: 0 };
+
+  const onMouseDown = (e: MouseEvent) => {
+    drag.active = true;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    drag.movedPx = 0;
+    cfg.canvas.style.cursor = "grabbing";
+  };
+
+  const onMouseMoveDrag = (e: MouseEvent) => {
+    if (!drag.active) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    drag.movedPx = Math.max(drag.movedPx, Math.abs(dx) + Math.abs(dy));
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    viewport.cx -= dx * viewport.blocksPerPixel;
+    viewport.cz -= dy * viewport.blocksPerPixel;
+    render();
+  };
+
+  const onMouseUp = (_e: MouseEvent) => {
+    drag.active = false;
+    cfg.canvas.style.cursor = "grab";
+  };
+
   function show(): void {
     isShown = true;
     cfg.canvas.style.display = "block";
     cfg.coordReadoutEl.style.display = "block";
+    cfg.canvas.addEventListener("mousedown",  onMouseDown);
+    window.addEventListener     ("mousemove", onMouseMoveDrag);
+    window.addEventListener     ("mouseup",   onMouseUp);
     if (dirty) {
       rebuildClassifier();
       render();
+    } else {
+      render();   // ensure canvas resized to current window
     }
   }
 
@@ -89,6 +123,9 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.style.display = "none";
     cfg.tooltipEl.style.display = "none";
     cfg.coordReadoutEl.style.display = "none";
+    cfg.canvas.removeEventListener("mousedown",  onMouseDown);
+    window.removeEventListener    ("mousemove", onMouseMoveDrag);
+    window.removeEventListener    ("mouseup",   onMouseUp);
   }
 
   function refresh(): void {

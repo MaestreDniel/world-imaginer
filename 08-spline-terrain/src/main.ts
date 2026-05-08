@@ -140,6 +140,7 @@ function setView(mode: "3d" | "map"): void {
   isMapView = (mode === "map");
   if (isMapView) {
     renderer.domElement.style.display = "none";
+    mapView.setCenter(camera.position.x, camera.position.z);
     mapView.show();
   } else {
     renderer.domElement.style.display = "block";

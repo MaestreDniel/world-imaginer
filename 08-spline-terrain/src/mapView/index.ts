@@ -76,6 +76,8 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
   function render(): void {
     sizeCanvasToViewport();
     renderMap(ctx!, viewport, classify, waterLevel);
+    cfg.coordReadoutEl.textContent =
+      `center: (${viewport.cx.toFixed(0)}, ${viewport.cz.toFixed(0)})  zoom: ${viewport.blocksPerPixel}b/px`;
     dirty = false;
   }
 

@@ -89,8 +89,8 @@ export function generateChunk(
       heights[idx] = h;
       const { temp, humid } = tempHumidSampler(wx, wz);
       biomes[idx] = classifyBiome(
-        sample.continentalness, sample.erosion, temp, humid,
-        h, waterLevel, config.params.shape.biomeClimate,
+        sample.continentalness, sample.erosion, sample.peaksValleys,
+        temp, humid, config.params.biomePicker,
       );
     }
   }
@@ -485,8 +485,8 @@ export function generateChunk(
         const baseH = terrainShaper.heightFromClimate(sample);
         const { temp, humid } = tempHumidSampler(wx, wz);
         biomeId = classifyBiome(
-          sample.continentalness, sample.erosion, temp, humid,
-          baseH, waterLevel, config.params.shape.biomeClimate,
+          sample.continentalness, sample.erosion, sample.peaksValleys,
+          temp, humid, config.params.biomePicker,
         );
         surfaceH = baseH;
         const v = riverNoise.voronoi2D(wx / rivers.voronoiScale, wz / rivers.voronoiScale);

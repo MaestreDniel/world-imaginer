@@ -136,16 +136,6 @@ const SECTIONS: SectionDef[] = [
   climateSection("climate-cont", "Climate · Continentalness", "continentalness", 200, 4000, 10),
   climateSection("climate-ero",  "Climate · Erosion",         "erosion",         100, 2000, 10),
   climateSection("climate-pv",   "Climate · Peaks & Valleys", "peaksValleys",     40,  600,  5),
-  {
-    id: "biome-climate", label: "Biome Thresholds", paramsKey: "shape", subKey: "biomeClimate", expanded: false,
-    sliders: [
-      { key: "oceanContinentalness",  label: "Ocean Cont.",   min: -1,   max: 0,   step: 0.01, decimals: 2 },
-      { key: "coastContinentalness",  label: "Coast Cont.",   min: -0.5, max: 0.3, step: 0.01, decimals: 2 },
-      { key: "beachBand",             label: "Beach Band",    min: 0,    max: 10,  step: 1,    decimals: 0 },
-      { key: "inlandContinentalness", label: "Inland Cont.",  min: 0,    max: 0.8, step: 0.01, decimals: 2 },
-      { key: "mountainErosion",       label: "Mountain Ero.", min: -1,   max: 0,   step: 0.01, decimals: 2 },
-    ],
-  },
 ];
 
 // ── Preset system ──────────────────────────────────────────────────
@@ -868,16 +858,17 @@ export class DebugPanel {
           }
           const raw = data.params ?? {};
           const params: GenerationParams = {
-            climate:  { ...DEFAULT_PARAMS.climate,  ...(raw.climate  ?? {}) },
-            shape:    { ...DEFAULT_PARAMS.shape,    ...(raw.shape    ?? {}) },
-            extent:   { ...DEFAULT_PARAMS.extent,   ...(raw.extent   ?? {}) },
-            erosion:  { ...DEFAULT_PARAMS.erosion,  ...(raw.erosion  ?? {}) },
-            caves:    { ...DEFAULT_PARAMS.caves,    ...(raw.caves    ?? {}) },
-            aquifers: { ...DEFAULT_PARAMS.aquifers, ...(raw.aquifers ?? {}) },
-            rivers:   { ...DEFAULT_PARAMS.rivers,   ...(raw.rivers   ?? {}) },
-            biomes:   { ...DEFAULT_PARAMS.biomes,   ...(raw.biomes   ?? {}) },
-            ores:     { ...DEFAULT_PARAMS.ores,     ...(raw.ores     ?? {}) },
-            vegetation: { ...DEFAULT_PARAMS.vegetation, ...(raw.vegetation ?? {}) },
+            climate:     { ...DEFAULT_PARAMS.climate,     ...(raw.climate     ?? {}) },
+            shape:       { ...DEFAULT_PARAMS.shape,       ...(raw.shape       ?? {}) },
+            biomePicker: { ...DEFAULT_PARAMS.biomePicker, ...(raw.biomePicker ?? {}) },
+            extent:      { ...DEFAULT_PARAMS.extent,      ...(raw.extent      ?? {}) },
+            erosion:     { ...DEFAULT_PARAMS.erosion,     ...(raw.erosion     ?? {}) },
+            caves:       { ...DEFAULT_PARAMS.caves,       ...(raw.caves       ?? {}) },
+            aquifers:    { ...DEFAULT_PARAMS.aquifers,    ...(raw.aquifers    ?? {}) },
+            rivers:      { ...DEFAULT_PARAMS.rivers,      ...(raw.rivers      ?? {}) },
+            biomes:      { ...DEFAULT_PARAMS.biomes,      ...(raw.biomes      ?? {}) },
+            ores:        { ...DEFAULT_PARAMS.ores,        ...(raw.ores        ?? {}) },
+            vegetation:  { ...DEFAULT_PARAMS.vegetation,  ...(raw.vegetation  ?? {}) },
           };
           this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);

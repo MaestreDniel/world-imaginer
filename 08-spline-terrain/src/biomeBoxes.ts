@@ -38,9 +38,17 @@ export interface BiomeBox {
   depth:        [number, number];
 }
 
+export type BoxAxis = keyof BiomeBox;
+
 export interface BiomeBoxEntry<Id extends number> {
   id: Id;
   box: BiomeBox;
+  /**
+   * Axes that act as hard limits: if the point overshoots any of them,
+   * fitness returns +Infinity and this entry is effectively excluded.
+   * Other axes still score softly via weighted-squared overshoot.
+   */
+  hardAxes?: ReadonlyArray<BoxAxis>;
 }
 
 export interface GlobalAxisWeights {
@@ -100,14 +108,34 @@ export function fitness(
   box: BiomeBox,
   w: GlobalAxisWeights,
   depthScale: number,
+  hardAxes?: ReadonlyArray<BoxAxis>,
 ): number {
-  const dT = axisDistance(point.temperature,             box.temperature)  * w.temperature;
-  const dH = axisDistance(point.humidity,                box.humidity)     * w.humidity;
-  const dC = axisDistance(point.continent,               box.continent)    * w.continent;
-  const dE = axisDistance(point.erosion,                 box.erosion)      * w.erosion;
-  const dP = axisDistance(point.peaksValleys,            box.peaksValleys) * w.peaksValleys;
-  const dD = axisDistance(point.depthBlocks / depthScale, box.depth)       * w.depth;
-  return dT*dT + dH*dH + dC*dC + dE*dE + dP*dP + dD*dD;
+  const dT = axisDistance(point.temperature,              box.temperature);
+  const dH = axisDistance(point.humidity,                 box.humidity);
+  const dC = axisDistance(point.continent,                box.continent);
+  const dE = axisDistance(point.erosion,                  box.erosion);
+  const dP = axisDistance(point.peaksValleys,             box.peaksValleys);
+  const dD = axisDistance(point.depthBlocks / depthScale, box.depth);
+
+  if (hardAxes) {
+    for (let i = 0; i < hardAxes.length; i++) {
+      const a = hardAxes[i];
+      if (a === "temperature"  && dT > 0) return Infinity;
+      if (a === "humidity"     && dH > 0) return Infinity;
+      if (a === "continent"    && dC > 0) return Infinity;
+      if (a === "erosion"      && dE > 0) return Infinity;
+      if (a === "peaksValleys" && dP > 0) return Infinity;
+      if (a === "depth"        && dD > 0) return Infinity;
+    }
+  }
+
+  const wT = dT * w.temperature;
+  const wH = dH * w.humidity;
+  const wC = dC * w.continent;
+  const wE = dE * w.erosion;
+  const wP = dP * w.peaksValleys;
+  const wD = dD * w.depth;
+  return wT*wT + wH*wH + wC*wC + wE*wE + wP*wP + wD*wD;
 }
 
 /**
@@ -121,9 +149,9 @@ export function pickBiome<Id extends number>(
   params: BiomePickerParams,
 ): Id {
   let bestId    = registry[0].id;
-  let bestScore = fitness(point, registry[0].box, params.weights, params.depthScale);
+  let bestScore = fitness(point, registry[0].box, params.weights, params.depthScale, registry[0].hardAxes);
   for (let i = 1; i < registry.length; i++) {
-    const score = fitness(point, registry[i].box, params.weights, params.depthScale);
+    const score = fitness(point, registry[i].box, params.weights, params.depthScale, registry[i].hardAxes);
     if (score < bestScore) { bestScore = score; bestId = registry[i].id; }
   }
   return bestId;

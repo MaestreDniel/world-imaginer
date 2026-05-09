@@ -420,19 +420,19 @@ export function createBiomeDebugSampler(seed: number, params: GenerationParams, 
  * [-0.1, +0.1] (≈ surface ± 6 blocks).
  */
 export const SURFACE_REGISTRY: ReadonlyArray<BiomeBoxEntry<BiomeId>> = [
-  { id: Biome.FrozenOcean, box: {
+  { id: Biome.FrozenOcean, hardAxes: ["continent"], box: {
       temperature: [-1.0, -0.3], humidity: [-1, 1],
-      continent:   [-1, -0.25],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [-1, -0.05],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
-  { id: Biome.Ocean, box: {
+  { id: Biome.Ocean, hardAxes: ["continent"], box: {
       temperature: [-1, 1],      humidity: [-1, 1],
-      continent:   [-1, -0.25],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [-1, -0.05],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Beach, box: {
       temperature: [-1, 1],          humidity: [-1, 1],
-      continent:   [-0.25, -0.05],   erosion:  [-1, 1], peaksValleys: [-1, 0],
+      continent:   [-0.10, 0.0],   erosion:  [-1, 1], peaksValleys: [-1, 0],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.StonyPeaks, box: {
@@ -452,37 +452,37 @@ export const SURFACE_REGISTRY: ReadonlyArray<BiomeBoxEntry<BiomeId>> = [
   }},
   { id: Biome.Desert, box: {
       temperature: [ 0.2, 1],   humidity: [-1, 0.15],
-      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Savanna, box: {
       temperature: [ 0.2, 1],   humidity: [ 0.15, 1],
-      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Forest, box: {
       temperature: [-0.15, 0.2], humidity: [ 0.2, 1],
-      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.BirchForest, box: {
       temperature: [-0.15, 0.2], humidity: [-0.1, 0.2],
-      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Plains, box: {
       temperature: [-0.15, 0.2], humidity: [-1, -0.1],
-      continent:   [-0.05, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],   erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Taiga, box: {
       temperature: [-1, -0.15], humidity: [ 0.05, 1],
-      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
   { id: Biome.Tundra, box: {
       temperature: [-1, -0.15], humidity: [-1, 0.05],
-      continent:   [-0.05, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
+      continent:   [ 0.0, 1],  erosion:  [-1, 1], peaksValleys: [-1, 1],
       depth:       [-0.1, 0.1],
   }},
 ];

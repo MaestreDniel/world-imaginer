@@ -142,7 +142,7 @@ The public API returns the **hard** heightmap. Walk controller and map view cont
 
 ### Docker / config
 
-`docker-compose.yml` gains a `09-density-terrain` service on port `5183` (5174 + 9). `package.json` copied from 08 with name updated.
+`docker-compose.yml` gains a `09-density-terrain` service on port `5182` (08 is on 5181). `package.json` copied from 08 with name updated.
 
 ## Validation
 

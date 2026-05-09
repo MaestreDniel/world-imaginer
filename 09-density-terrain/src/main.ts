@@ -14,6 +14,17 @@ import {
   type DayNightState,
 } from "./dayNight";
 
+if (import.meta.env.DEV) {
+  // TEMP: offsetFactor sanity check (removed in Task 10)
+  (async () => {
+    const { createOffsetFactorSampler } = await import("./offsetFactor");
+    const sampler = createOffsetFactorSampler(42, DEFAULT_PARAMS);
+    console.log("[09 sanity] offsetFactor at origin:", sampler.fieldsAt(0, 0));
+    console.log("[09 sanity] offsetFactor at (1000, 1000):", sampler.fieldsAt(1000, 1000));
+    console.log("[09 sanity] offsetFactor at (-2000, 500):", sampler.fieldsAt(-2000, 500));
+  })();
+}
+
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x7EC8E3);

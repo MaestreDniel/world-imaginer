@@ -76,9 +76,12 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     waterLevel = wl;
   }
 
-  function render(): void {
+  /** Coarser sampling during interactive drag — see renderMap docs. */
+  const DRAG_PIXEL_STEP = 8;
+
+  function render(pixelStep: number = 1): void {
     sizeCanvasToViewport();
-    renderMap(ctx!, viewport, classify, waterLevel);
+    renderMap(ctx!, viewport, classify, waterLevel, pixelStep);
     cfg.coordReadoutEl.textContent =
       `center: (${viewport.cx.toFixed(0)}, ${viewport.cz.toFixed(0)})  zoom: ${viewport.blocksPerPixel}b/px`;
     dirty = false;
@@ -113,15 +116,21 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
       dragFrameQueued = true;
       requestAnimationFrame(() => {
         dragFrameQueued = false;
-        render();
+        // If mouseup landed before this frame fired, mouseup already
+        // rendered at full quality — skip the coarse render.
+        if (drag.active) render(DRAG_PIXEL_STEP);
       });
     }
   };
 
   const onMouseUp = (e: MouseEvent) => {
-    const wasClick = drag.active && drag.movedPx < 5;
+    const wasDragging = drag.active && drag.movedPx >= 5;
+    const wasClick    = drag.active && drag.movedPx < 5;
     drag.active = false;
     cfg.canvas.style.cursor = "grab";
+
+    // After a real drag, redraw the final view at full quality.
+    if (wasDragging) render();
 
     if (!wasClick) return;
 

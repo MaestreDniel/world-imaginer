@@ -10,6 +10,9 @@ import { createTerrainShaper } from "./terrainShape";
 import { placeOakTree, placeSpruceTree, placeBirchTree, placeCactus, placePyramid, placeIgloo, placeHouse } from "./structures";
 import { erode } from "./erosion";
 import { type GenerationParams, DEFAULT_PARAMS, toErosionConfig } from "./generationParams";
+import { createOffsetFactorSampler, type ColumnFields } from "./offsetFactor";
+import { createDensitySampler } from "./densityField";
+import { fillChunkDensity } from "./chunkDensity";
 
 /**
  * 3D chunk generation with biome-aware terrain and biome blending.
@@ -52,6 +55,18 @@ export function chunkIndex(x: number, y: number, z: number): number {
 }
 
 export function generateChunk(
+  chunkX: number,
+  chunkY: number,
+  chunkZ: number,
+  config: WorldConfig,
+): ChunkResult {
+  if (config.params.useDensityPipeline) {
+    return generateChunkDensity(chunkX, chunkY, chunkZ, config);
+  }
+  return generateChunkLegacy(chunkX, chunkY, chunkZ, config);
+}
+
+function generateChunkLegacy(
   chunkX: number,
   chunkY: number,
   chunkZ: number,
@@ -668,6 +683,135 @@ export function generateChunk(
       }
     }
   }
+
+  return { data, grassColors, heightMap: heights };
+}
+
+function generateChunkDensity(
+  chunkX: number,
+  chunkY: number,
+  chunkZ: number,
+  config: WorldConfig,
+): ChunkResult {
+  const { seed, waterLevel } = config;
+  const data = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+
+  const wxOff = chunkX * CHUNK_SIZE;
+  const wyOff = chunkY * CHUNK_SIZE;
+  const wzOff = chunkZ * CHUNK_SIZE;
+
+  // Re-use the same seed offsets the legacy branch used so visual identity
+  // (ore positions, gravel patches, etc.) stays consistent across the swap.
+  const layerNoise  = createNoise(seed);
+  const gravelNoise = createNoise(seed);
+
+  // ── 1. Climate sampling (per column) ──────────────────────────────
+  const offsetFactor = createOffsetFactorSampler(seed, config.params);
+  const density = createDensitySampler(seed, config.params, offsetFactor, waterLevel);
+  const tempHumidSampler = createBiomeSampler(seed, config.params.biomes);
+
+  const columnFields: ColumnFields[] = new Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colTemp     = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colHumid    = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colContinent= new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colErosion  = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const colPV       = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  const biomes      = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wx = wxOff + lx;
+      const wz = wzOff + lz;
+      const idx = lz * CHUNK_SIZE + lx;
+      const sample = offsetFactor.sampleClimate(wx, wz);
+      columnFields[idx] = offsetFactor.fieldsFromClimate(sample);
+      const { temp, humid } = tempHumidSampler(wx, wz);
+      biomes[idx] = classifyBiome(
+        sample.continentalness, sample.erosion, sample.peaksValleys,
+        temp, humid, config.params.biomePicker,
+      );
+      colTemp[idx]      = temp;
+      colHumid[idx]     = humid;
+      colContinent[idx] = sample.continentalness;
+      colErosion[idx]   = sample.erosion;
+      colPV[idx]        = sample.peaksValleys;
+    }
+  }
+
+  // ── 2. Coarse density grid + trilerp → solid mask ─────────────────
+  const solid = fillChunkDensity(chunkX, chunkY, chunkZ, offsetFactor, density, columnFields);
+
+  // ── 3. Voxelize: solid → block, with depth tracked top-down per column.
+  const heights = new Float64Array(CHUNK_SIZE * CHUNK_SIZE);
+  for (let i = 0; i < heights.length; i++) heights[i] = -Infinity;
+
+  // Track "depth below highest solid in this chunk's column", needed for surface/sub-surface/stone tiers.
+  // We iterate y top-down so air voxels reset depth, and the first solid voxel becomes the surface.
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const colIdx = lz * CHUNK_SIZE + lx;
+      const biomeId = biomes[colIdx];
+      const biomeDef = BIOME_DEFS[biomeId];
+      let depth = -1; // -1 means "no solid seen yet in this column"
+      let surfaceWy = -Infinity;
+      for (let ly = CHUNK_SIZE - 1; ly >= 0; ly--) {
+        const wy = wyOff + ly;
+        const voxIdx = chunkIndex(lx, ly, lz);
+        const isSolid = solid[voxIdx] === 1;
+        if (!isSolid) {
+          depth = -1;
+          data[voxIdx] = wy <= waterLevel ? Block.Water : Block.Air;
+          continue;
+        }
+        if (depth === -1) {
+          depth = 0;
+          surfaceWy = wy;
+          if (heights[colIdx] === -Infinity) heights[colIdx] = wy;
+        }
+
+        // Block selection
+        const wx = wxOff + lx;
+        const wz = wzOff + lz;
+        const layerVar = layerNoise.fbm2D(wx / 40, wz / 40, 3, 0.5, 2.0) * 3;
+
+        let block: number;
+        if (depth < 1) {
+          block = biomeDef.surfaceBlock;
+        } else if (depth < 5 + layerVar) {
+          block = biomeDef.subSurfaceBlock;
+        } else if (depth < 30 + layerVar) {
+          block = Block.Stone;
+        } else {
+          block = Block.DeepStone;
+        }
+
+        // Snow cap on mountain peaks
+        if (biomeId === Biome.Mountains && depth < 1 && surfaceWy > 30) {
+          block = Block.Snow;
+        }
+
+        // Gravel patches on ocean floor
+        if (biomeId === Biome.Ocean && depth < 2) {
+          const gravelVal = gravelNoise.perlin2D(wx / 8, wz / 8);
+          if (gravelVal > 0.3) block = Block.Gravel;
+        }
+
+        // Ice on water at water level in cold biomes — handled in a later water-surface pass.
+
+        data[voxIdx] = block;
+        depth++;
+      }
+    }
+  }
+
+  // ── 4. Patch up: ores, ice, aquifers, lava, glowstone, bedrock, structures, vegetation ──
+  // (Filled in by Tasks 7–8.)
+
+  const { grassColors } = computeBlendedGrassColors(
+    wxOff, wzOff, CHUNK_SIZE,
+    tempHumidSampler,
+    (lx, lz) => biomes[lz * CHUNK_SIZE + lx] as BiomeId,
+  );
 
   return { data, grassColors, heightMap: heights };
 }

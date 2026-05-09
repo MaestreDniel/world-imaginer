@@ -22,6 +22,12 @@ if (import.meta.env.DEV) {
     console.log("[09 sanity] offsetFactor at origin:", sampler.fieldsAt(0, 0));
     console.log("[09 sanity] offsetFactor at (1000, 1000):", sampler.fieldsAt(1000, 1000));
     console.log("[09 sanity] offsetFactor at (-2000, 500):", sampler.fieldsAt(-2000, 500));
+    const { createDensitySampler } = await import("./densityField");
+    const density = createDensitySampler(42, DEFAULT_PARAMS, sampler, DEFAULT_CONFIG.waterLevel);
+    console.log("[09 sanity] density deep underground (0, -100, 0):", density.sampleDensity(0, -100, 0).toFixed(2), "(should be > 0)");
+    console.log("[09 sanity] density high in sky (0, 200, 0):", density.sampleDensity(0, 200, 0).toFixed(2), "(should be < 0)");
+    const f = sampler.fieldsAt(1000, 1000);
+    console.log("[09 sanity] offset(1000,1000) =", f.offset.toFixed(2), "density at y=offset:", density.sampleDensity(1000, f.offset, 1000).toFixed(2), "(should be ≈ 0 ± jaggedness)");
   })();
 }
 

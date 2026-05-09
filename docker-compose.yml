@@ -95,6 +95,18 @@ services:
     networks:
       - app-network
 
+  density-terrain:
+    build:
+      context: ./09-density-terrain
+    container_name: density_terrain
+    ports:
+      - "5182:5182"
+    volumes:
+      - ./09-density-terrain:/app
+      - density_terrain_modules:/app/node_modules
+    networks:
+      - app-network
+
 networks:
   app-network:
     external: true
@@ -109,3 +121,4 @@ volumes:
   biome_blending_modules:
   advanced_terrain_modules:
   spline_terrain_modules:
+  density_terrain_modules:

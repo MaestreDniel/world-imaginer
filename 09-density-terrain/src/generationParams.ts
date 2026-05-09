@@ -54,6 +54,25 @@ export interface OreParams {
   coalThreshold: number;
 }
 
+export interface DensityParams {
+  /** fBm3D frequency divisor for the jaggedness term. Larger = smoother peaks. */
+  jaggedScale: number;
+  /** Vertical falloff for the jaggedness envelope around offset(x,z). */
+  jaggedFalloff: number;
+  /** fBm octaves for the jaggedness noise. */
+  jaggedOctaves: number;
+  /** fBm3D frequency divisor for the cave noises. */
+  caveScale: number;
+  /** Threshold for cave intersection (|n| < t inside tunnels, mapped to caveMask). */
+  caveThreshold: number;
+  /** Cave term reaches full strength `caveDepthRange` voxels below sea level. */
+  caveDepthRange: number;
+  /** Lower clamp on factor(x,z). */
+  factorMin: number;
+  /** Upper clamp on factor(x,z). */
+  factorMax: number;
+}
+
 export interface VegetationParams {
   enabled: boolean;
   /** Multiplies every biome's decorationDensity. 0 = no decorations, 1 = default, 3 = lush. */
@@ -94,6 +113,9 @@ export interface GenerationParams {
   biomes: BiomeParams;
   ores: OreParams;
   vegetation: VegetationParams;
+  density: DensityParams;
+  /** When true, chunk.ts uses the 3D density pipeline; when false, the legacy heightmap pipeline. */
+  useDensityPipeline: boolean;
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
@@ -156,6 +178,17 @@ export const DEFAULT_PARAMS: GenerationParams = {
     globalDensity: 1.0,
     treeDensity: 1.0,
   },
+  density: {
+    jaggedScale: 80,
+    jaggedFalloff: 24,
+    jaggedOctaves: 3,
+    caveScale: 60,
+    caveThreshold: 0.08,
+    caveDepthRange: 32,
+    factorMin: 0.5,
+    factorMax: 6.0,
+  },
+  useDensityPipeline: false,
 };
 
 /** Convert ErosionParams to the full ErosionConfig expected by erode(). */

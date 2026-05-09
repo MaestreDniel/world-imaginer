@@ -960,6 +960,8 @@ export class DebugPanel {
             biomes:      { ...DEFAULT_PARAMS.biomes,      ...(raw.biomes      ?? {}) },
             ores:        { ...DEFAULT_PARAMS.ores,        ...(raw.ores        ?? {}) },
             vegetation:  { ...DEFAULT_PARAMS.vegetation,  ...(raw.vegetation  ?? {}) },
+            density:     { ...DEFAULT_PARAMS.density,     ...(raw.density     ?? {}) },
+            useDensityPipeline: raw.useDensityPipeline ?? DEFAULT_PARAMS.useDensityPipeline,
           };
           this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);

@@ -752,8 +752,16 @@ function generateChunkDensity(
       const colIdx = lz * CHUNK_SIZE + lx;
       const biomeId = biomes[colIdx];
       const biomeDef = BIOME_DEFS[biomeId];
+      // Per-column constants — hoisted out of the inner Y loop.
+      const wx = wxOff + lx;
+      const wz = wzOff + lz;
+      const layerVar = layerNoise.fbm2D(wx / 40, wz / 40, 3, 0.5, 2.0) * 3;
+      const gravelVal = gravelNoise.perlin2D(wx / 8, wz / 8);
+      // `topmostSolidWy` records the highest solid y seen so far in this column.
+      // Not reset on cave gaps — the snow-cap rule below uses the column-top, not
+      // the local-stratum top, which is the intended behavior.
       let depth = -1; // -1 means "no solid seen yet in this column"
-      let surfaceWy = -Infinity;
+      let topmostSolidWy = -Infinity;
       for (let ly = CHUNK_SIZE - 1; ly >= 0; ly--) {
         const wy = wyOff + ly;
         const voxIdx = chunkIndex(lx, ly, lz);
@@ -765,14 +773,9 @@ function generateChunkDensity(
         }
         if (depth === -1) {
           depth = 0;
-          surfaceWy = wy;
+          if (topmostSolidWy === -Infinity) topmostSolidWy = wy;
           if (heights[colIdx] === -Infinity) heights[colIdx] = wy;
         }
-
-        // Block selection
-        const wx = wxOff + lx;
-        const wz = wzOff + lz;
-        const layerVar = layerNoise.fbm2D(wx / 40, wz / 40, 3, 0.5, 2.0) * 3;
 
         let block: number;
         if (depth < 1) {
@@ -786,14 +789,13 @@ function generateChunkDensity(
         }
 
         // Snow cap on mountain peaks
-        if (biomeId === Biome.Mountains && depth < 1 && surfaceWy > 30) {
+        if (biomeId === Biome.Mountains && depth < 1 && topmostSolidWy > 30) {
           block = Block.Snow;
         }
 
         // Gravel patches on ocean floor
-        if (biomeId === Biome.Ocean && depth < 2) {
-          const gravelVal = gravelNoise.perlin2D(wx / 8, wz / 8);
-          if (gravelVal > 0.3) block = Block.Gravel;
+        if (biomeId === Biome.Ocean && depth < 2 && gravelVal > 0.3) {
+          block = Block.Gravel;
         }
 
         // Ice on water at water level in cold biomes — handled in a later water-surface pass.

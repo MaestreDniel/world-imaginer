@@ -321,40 +321,40 @@ function animate(timestamp: number) {
   (scene.fog as THREE.Fog).color.copy(frame.clearColor);
   debugPanel.updateDayNightReadout(frame);
 
-  if (mode === "fly") {
-    handleFlyMovement();
-    controls.update();
-    world.update(controls.target, renderRadius);
-  } else {
-    walkController.update(dt, keysDown);
-    world.update(walkController.feet, renderRadius);
-  }
-
-  chunksDisplay.textContent  = String(world.loadedCount());
-  pendingDisplay.textContent = String(world.pendingCount());
-
-  if (debugToggle.checked) {
-    const pos = mode === "fly" ? controls.target : walkController.feet;
-    const wx = Math.floor(pos.x);
-    const wz = Math.floor(pos.z);
-    const debug = biomeDebugSampler(wx, wz);
-    const biomeName = BIOME_DEFS[debug.biome]?.name ?? "Unknown";
-    debugOverlay.innerHTML =
-      `Mode: ${mode}<br>` +
-      `Pos: ${wx}, ${Math.floor(pos.y)}, ${wz}<br>` +
-      `Chunk: ${Math.floor(pos.x / CHUNK_SIZE)}, ${Math.floor(pos.y / CHUNK_SIZE)}, ${Math.floor(pos.z / CHUNK_SIZE)}<br>` +
-      `Biome: ${biomeName}<br>` +
-      `Seed: ${currentSeed}<br>` +
-      `Erosion: ${currentParams.erosion.enabled ? 'ON' : 'OFF'} (${currentParams.erosion.droplets} drops)<br><br>` +
-      `Temperature: ${debug.temperature.toFixed(3)}<br>` +
-      `Humidity: ${debug.humidity.toFixed(3)}<br>` +
-      `Continentalness: ${debug.continentalness.toFixed(3)}<br>` +
-      `Erosion: ${debug.erosion.toFixed(3)}<br>` +
-      `Peaks/Valleys: ${debug.peaksValleys.toFixed(3)}<br>` +
-      `Height: ${debug.height.toFixed(1)}`;
-  }
-
   if (!isMapView) {
+    if (mode === "fly") {
+      handleFlyMovement();
+      controls.update();
+      world.update(controls.target, renderRadius);
+    } else {
+      walkController.update(dt, keysDown);
+      world.update(walkController.feet, renderRadius);
+    }
+
+    chunksDisplay.textContent  = String(world.loadedCount());
+    pendingDisplay.textContent = String(world.pendingCount());
+
+    if (debugToggle.checked) {
+      const pos = mode === "fly" ? controls.target : walkController.feet;
+      const wx = Math.floor(pos.x);
+      const wz = Math.floor(pos.z);
+      const debug = biomeDebugSampler(wx, wz);
+      const biomeName = BIOME_DEFS[debug.biome]?.name ?? "Unknown";
+      debugOverlay.innerHTML =
+        `Mode: ${mode}<br>` +
+        `Pos: ${wx}, ${Math.floor(pos.y)}, ${wz}<br>` +
+        `Chunk: ${Math.floor(pos.x / CHUNK_SIZE)}, ${Math.floor(pos.y / CHUNK_SIZE)}, ${Math.floor(pos.z / CHUNK_SIZE)}<br>` +
+        `Biome: ${biomeName}<br>` +
+        `Seed: ${currentSeed}<br>` +
+        `Erosion: ${currentParams.erosion.enabled ? 'ON' : 'OFF'} (${currentParams.erosion.droplets} drops)<br><br>` +
+        `Temperature: ${debug.temperature.toFixed(3)}<br>` +
+        `Humidity: ${debug.humidity.toFixed(3)}<br>` +
+        `Continentalness: ${debug.continentalness.toFixed(3)}<br>` +
+        `Erosion: ${debug.erosion.toFixed(3)}<br>` +
+        `Peaks/Valleys: ${debug.peaksValleys.toFixed(3)}<br>` +
+        `Height: ${debug.height.toFixed(1)}`;
+    }
+
     renderer.render(scene, camera);
   }
 

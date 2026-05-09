@@ -2,7 +2,7 @@ import { type GenerationParams } from "../generationParams";
 import { Biome, classifyBiome, createBiomeSampler, BIOME_DEFS, type BiomeId } from "../biomes";
 import { createTerrainShaper } from "../terrainShape";
 import { type Viewport, ZOOM_LEVELS, pixelToWorld, zoomIn, zoomOut } from "./viewport";
-import { renderMap, type ClassifyFn } from "./render";
+import { drawMarkerLayers, renderMap, renderMapRows, type ClassifyFn } from "./render";
 
 export interface MapViewHandle {
   show(): void;
@@ -78,13 +78,65 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
 
   /** Coarser sampling during interactive drag — see renderMap docs. */
   const DRAG_PIXEL_STEP = 8;
+  const FINAL_TILE_ROWS = 8;
+  const FINAL_RENDER_FRAME_BUDGET_MS = 8;
+  let renderJobId = 0;
 
-  function render(pixelStep: number = 1): void {
-    sizeCanvasToViewport();
-    renderMap(ctx!, viewport, classify, waterLevel, pixelStep);
+  function cancelProgressiveRender(): void {
+    renderJobId++;
+  }
+
+  function updateCoordReadout(): void {
     cfg.coordReadoutEl.textContent =
       `center: (${viewport.cx.toFixed(0)}, ${viewport.cz.toFixed(0)})  zoom: ${viewport.blocksPerPixel}b/px`;
+  }
+
+  function render(pixelStep: number = 1): void {
+    cancelProgressiveRender();
+    sizeCanvasToViewport();
+    renderMap(ctx!, viewport, classify, waterLevel, pixelStep);
+    updateCoordReadout();
     dirty = false;
+  }
+
+  function renderProgressiveFinal(): void {
+    sizeCanvasToViewport();
+    updateCoordReadout();
+    dirty = false;
+
+    const jobId = ++renderJobId;
+    const jobViewport: Viewport = { ...viewport };
+    const jobClassify = classify;
+    const jobWaterLevel = waterLevel;
+    let nextY = 0;
+
+    const renderNextTiles = () => {
+      if (jobId !== renderJobId || !isShown) return;
+
+      const frameStart = performance.now();
+      do {
+        const yEnd = Math.min(nextY + FINAL_TILE_ROWS, jobViewport.height);
+        renderMapRows(ctx!, jobViewport, jobClassify, jobWaterLevel, nextY, yEnd);
+        nextY = yEnd;
+      } while (
+        nextY < jobViewport.height &&
+        performance.now() - frameStart < FINAL_RENDER_FRAME_BUDGET_MS
+      );
+
+      if (nextY < jobViewport.height) {
+        requestAnimationFrame(renderNextTiles);
+        return;
+      }
+
+      if (jobId === renderJobId) drawMarkerLayers(ctx!, jobViewport);
+    };
+
+    requestAnimationFrame(renderNextTiles);
+  }
+
+  function renderPreviewThenProgressive(): void {
+    render(DRAG_PIXEL_STEP);
+    renderProgressiveFinal();
   }
 
   // ── Pan ─────────────────────────────────────────────────────────────
@@ -102,6 +154,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
 
   const onMouseMoveDrag = (e: MouseEvent) => {
     if (!drag.active) return;
+    cancelProgressiveRender();
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
     drag.movedPx = Math.max(drag.movedPx, Math.abs(dx) + Math.abs(dy));
@@ -130,7 +183,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.style.cursor = "grab";
 
     // After a real drag, redraw the final view at full quality.
-    if (wasDragging) render();
+    if (wasDragging) renderProgressiveFinal();
 
     if (!wasClick) return;
 
@@ -158,7 +211,7 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     const after = pixelToWorld(viewport, px, py);
     viewport.cx += before.wx - after.wx;
     viewport.cz += before.wz - after.wz;
-    render();
+    renderPreviewThenProgressive();
   };
 
   // ── Hover tooltip ───────────────────────────────────────────────────
@@ -231,13 +284,14 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     cfg.canvas.addEventListener("mouseleave", onMouseLeave);
     if (dirty) {
       rebuildClassifier();
-      render();
+      renderPreviewThenProgressive();
     } else {
-      render();   // ensure canvas resized to current window
+      renderPreviewThenProgressive();   // ensure canvas resized to current window
     }
   }
 
   function hide(): void {
+    cancelProgressiveRender();
     isShown = false;
     cfg.canvas.style.display = "none";
     cfg.tooltipEl.style.display = "none";
@@ -256,13 +310,13 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
       return;
     }
     rebuildClassifier();
-    render();
+    renderPreviewThenProgressive();
   }
 
   function setCenter(wx: number, wz: number): void {
     viewport.cx = wx;
     viewport.cz = wz;
-    if (isShown) render();
+    if (isShown) renderPreviewThenProgressive();
   }
 
   return { show, hide, refresh, setCenter };

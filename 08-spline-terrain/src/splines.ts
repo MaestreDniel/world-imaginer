@@ -65,8 +65,8 @@ export function evalAnchored(list: AnchoredSpline[], key: number, innerX: number
 export const DEFAULT_TERRAIN_SHAPE: TerrainShape = {
   continent: [
     { x: -1.0, y: -40 },
-    { x: -0.3, y: -15 },
-    { x: -0.2, y:   5 },
+    { x: -0.3, y: -9 },
+    { x: -0.05, y:  -5 },
     { x:  0.3, y:  40 },
     { x:  0.4, y:  90 },
     { x:  1.0, y: 100 },

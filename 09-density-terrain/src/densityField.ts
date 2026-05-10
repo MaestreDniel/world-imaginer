@@ -20,13 +20,25 @@ export function createDensitySampler(
   const caveNoiseB  = createNoise(seed + 32);
   const d = params.density;
 
-  function caveStrength(wy: number): number {
-    // 0 above sea level, 1 at sea level - caveDepthRange, 0 below bedrock
+  /**
+   * Cave strength as a function of y AND the column's surface offset.
+   *
+   * The previous version gated caves by global sea level, which is wrong with
+   * mountainous columns where offset can be y=80 — the eligible cave zone
+   * collapsed to a tiny band near sea level even though the column's actual
+   * underground extends from y=80 down to bedrock. Cave strength is now
+   * relative to the column's surface (offset), so any underground voxel can
+   * potentially be a cave.
+   *
+   * Returns 0 outside the underground range, ramps to 1 at depth=caveDepthRange
+   * below the surface, falls back to 0 in the 8 voxels above bedrock.
+   */
+  function caveStrength(wy: number, offset: number): number {
     const minHeight = params.extent.minHeight;
-    if (wy >= waterLevel) return 0;
-    if (wy <= minHeight + 4) return 0;
-    const depth = waterLevel - wy;
-    const ramp = Math.min(1, depth / d.caveDepthRange);
+    const depthBelowSurface = offset - wy;
+    if (depthBelowSurface < 4) return 0;     // protect surface band
+    if (wy <= minHeight + 4) return 0;        // protect bedrock band
+    const ramp = Math.min(1, (depthBelowSurface - 4) / d.caveDepthRange);
     const bedrockFalloff = Math.min(1, (wy - minHeight - 4) / 8);
     return ramp * bedrockFalloff;
   }
@@ -53,7 +65,7 @@ export function createDensitySampler(
     // anything because cs * m * factor (max ~0.16) is dwarfed by base (which
     // grows linearly with depth — `factor × depth_below_offset`).
     let density = base + jagged;
-    const cs = caveStrength(wy);
+    const cs = caveStrength(wy, offset);
     if (cs > 0) {
       const n1 = caveNoiseA.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);
       const n2 = caveNoiseB.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);

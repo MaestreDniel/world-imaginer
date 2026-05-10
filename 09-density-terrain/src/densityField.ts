@@ -48,17 +48,27 @@ export function createDensitySampler(
       d.jaggedOctaves, 0.5, 2.0,
     );
 
-    let cave = 0;
+    // Cave term needs to scale with |base| so it can overpower the depth-based
+    // positive density at any depth. Without this scaling, caves never carve
+    // anything because cs * m * factor (max ~0.16) is dwarfed by base (which
+    // grows linearly with depth — `factor × depth_below_offset`).
+    let density = base + jagged;
     const cs = caveStrength(wy);
     if (cs > 0) {
       const n1 = caveNoiseA.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);
       const n2 = caveNoiseB.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);
-      const m = Math.max(0, d.caveThreshold - Math.max(Math.abs(n1), Math.abs(n2)));
-      // Multiply by factor so caves match local terrain "hardness" scale.
-      cave = cs * m * factor * 8;
+      const inside = Math.max(0, d.caveThreshold - Math.max(Math.abs(n1), Math.abs(n2)));
+      if (inside > 0) {
+        // carveFraction ∈ [0, 1]: 1 means tunnel core (full carve), 0 means just
+        // outside the threshold. Multiplied by 1.6 so even partial-strength tunnels
+        // can flip the sign — produces a soft halo of "near-air" around carved
+        // tunnel cores rather than a hard threshold ring.
+        const carveFraction = cs * (inside / d.caveThreshold);
+        density -= Math.abs(base) * carveFraction * 1.6;
+      }
     }
 
-    return base + jagged - cave;
+    return density;
   }
 
   function sampleDensity(wx: number, wy: number, wz: number): number {

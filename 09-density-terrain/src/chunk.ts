@@ -806,8 +806,157 @@ function generateChunkDensity(
     }
   }
 
-  // ── 4. Patch up: ores, ice, aquifers, lava, glowstone, bedrock, structures, vegetation ──
-  // (Filled in by Tasks 7–8.)
+  // ── 4. Patch up: structures, vegetation ──
+  // (Filled in by Task 8.)
+
+  // ── Ores — re-pass over Stone/DeepStone voxels ────────────────────
+  const oreNoise = createNoise(seed + 2);
+  const { ores } = config.params;
+  for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+    const wy = wyOff + ly;
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const voxIdx = chunkIndex(lx, ly, lz);
+        const b = data[voxIdx];
+        if (b !== Block.Stone && b !== Block.DeepStone) continue;
+        const wx = wxOff + lx;
+        const wz = wzOff + lz;
+        const colIdx = lz * CHUNK_SIZE + lx;
+        const surfaceH = heights[colIdx];
+        if (surfaceH === -Infinity) continue;
+        const depth = surfaceH - wy;
+        const oreVal = oreNoise.fbm3D(wx / ores.scale, wy / ores.scale, wz / ores.scale, 2, 0.5, 2.0);
+        if (oreVal > ores.ironThreshold && depth > ores.ironMinDepth) {
+          data[voxIdx] = Block.Iron;
+        } else if (oreVal > ores.coalThreshold && depth > 8) {
+          data[voxIdx] = Block.Coal;
+        }
+      }
+    }
+  }
+
+  // ── Ice on water surface in cold biomes ───────────────────────────
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const wy = waterLevel;
+      if (wy < wyOff || wy >= wyOff + CHUNK_SIZE) continue;
+      const ly = wy - wyOff;
+      const voxIdx = chunkIndex(lx, ly, lz);
+      if (data[voxIdx] !== Block.Water) continue;
+      const biomeId = biomes[lz * CHUNK_SIZE + lx];
+      if (biomeId === Biome.Tundra || biomeId === Biome.Taiga || biomeId === Biome.FrozenOcean) {
+        data[voxIdx] = Block.Ice;
+      }
+    }
+  }
+
+  // ── Aquifers ──────────────────────────────────────────────────────
+  const { aquifers } = config.params;
+  if (aquifers.enabled) {
+    const aquiferPresenceNoise = createNoise(seed + 13);
+    const aquiferLevelNoise    = createNoise(seed + 14);
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      const wz = wzOff + lz;
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const wx = wxOff + lx;
+        const colIdx = lz * CHUNK_SIZE + lx;
+        if (heights[colIdx] !== -Infinity && heights[colIdx] <= waterLevel) continue;
+        const rawLevel = waterLevel + aquifers.levelOffset
+          + aquiferLevelNoise.fbm2D(
+              wx / aquifers.levelScale,
+              wz / aquifers.levelScale,
+              2, 0.5, 2.0,
+            ) * aquifers.levelAmplitude;
+        const localSurface = Math.floor(rawLevel);
+        for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+          const wy = wyOff + ly;
+          const voxIdx = chunkIndex(lx, ly, lz);
+          if (data[voxIdx] !== Block.Air) continue;
+          if (wy > localSurface) continue;
+          const presence = aquiferPresenceNoise.fbm3D(
+            wx / aquifers.presenceScale,
+            wy / (aquifers.presenceScale * 2),
+            wz / aquifers.presenceScale,
+            2, 0.5, 2.0,
+          );
+          if (presence <= aquifers.presenceThreshold) continue;
+          data[voxIdx] = Block.Water;
+        }
+      }
+    }
+  }
+
+  // Surface block under water → sub-surface (grass → dirt under ponds)
+  for (let ly = CHUNK_SIZE - 1; ly >= 1; ly--) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        if (data[chunkIndex(lx, ly, lz)] !== Block.Water) continue;
+        const belowIdx = chunkIndex(lx, ly - 1, lz);
+        const biomeDef = BIOME_DEFS[biomes[lz * CHUNK_SIZE + lx]];
+        if (data[belowIdx] === biomeDef.surfaceBlock) {
+          data[belowIdx] = biomeDef.subSurfaceBlock;
+        }
+      }
+    }
+  }
+
+  // ── Lava (deep chunks only) ───────────────────────────────────────
+  if (chunkY <= -1) {
+    const lavaNoise = createNoise(seed + 4);
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          if (data[chunkIndex(lx, ly, lz)] !== Block.Air) continue;
+          const wx = wxOff + lx;
+          const wz = wzOff + lz;
+          const n = lavaNoise.perlin2D(wx / 20, wz / 20);
+          if (n > 0.7) data[chunkIndex(lx, ly, lz)] = Block.Lava;
+        }
+      }
+    }
+  }
+
+  // ── Glowstone on cave ceilings ────────────────────────────────────
+  const glowstoneNoise = createNoise(seed + 8);
+  for (let ly = 0; ly < CHUNK_SIZE - 1; ly++) {
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        if (data[chunkIndex(lx, ly, lz)] !== Block.Air) continue;
+        const above = data[chunkIndex(lx, ly + 1, lz)];
+        const aboveDef = BLOCK_DEFS[above];
+        if (!aboveDef || aboveDef.transparent) continue;
+        const wx = wxOff + lx;
+        const wz = wzOff + lz;
+        const n = glowstoneNoise.perlin2D(wx / 15, wz / 15);
+        if (n > 0.65) data[chunkIndex(lx, ly, lz)] = Block.Glowstone;
+      }
+    }
+  }
+
+  // ── Bedrock floor ─────────────────────────────────────────────────
+  const BEDROCK_BOTTOM = config.params.extent.minHeight;
+  const BEDROCK_FUZZY_HEIGHT = 2;
+  if (wyOff <= BEDROCK_BOTTOM + BEDROCK_FUZZY_HEIGHT && wyOff + CHUNK_SIZE > BEDROCK_BOTTOM) {
+    const bedrockNoise = createNoise(seed + 15);
+    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
+      const wy = wyOff + ly;
+      if (wy < BEDROCK_BOTTOM || wy > BEDROCK_BOTTOM + BEDROCK_FUZZY_HEIGHT) continue;
+      const rowAbove = wy - BEDROCK_BOTTOM;
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+          if (rowAbove === 0) {
+            data[chunkIndex(lx, ly, lz)] = Block.Bedrock;
+          } else {
+            const wx = wxOff + lx;
+            const wz = wzOff + lz;
+            const n = bedrockNoise.perlin2D((wx + rowAbove * 13) / 3, (wz + rowAbove * 17) / 3);
+            const threshold = -0.66 + rowAbove * 0.5;
+            if (n > threshold) data[chunkIndex(lx, ly, lz)] = Block.Bedrock;
+          }
+        }
+      }
+    }
+  }
 
   const { grassColors } = computeBlendedGrassColors(
     wxOff, wzOff, CHUNK_SIZE,

@@ -27,6 +27,8 @@ interface SliderDef {
   max: number;
   step: number;
   decimals: number;
+  /** Optional hover tooltip explaining what the knob does and which way is which. */
+  description?: string;
 }
 
 interface SectionDef {
@@ -70,14 +72,69 @@ const SECTIONS: SectionDef[] = [
   {
     id: "density", label: "Density Field", paramsKey: "density", expanded: false,
     sliders: [
-      { key: "jaggedScale",    label: "Jagged Scale",    min: 6,    max: 60,   step: 1,     decimals: 0 },
-      { key: "jaggedFalloff",  label: "Jagged Falloff",  min: 4,    max: 64,   step: 1,     decimals: 0 },
-      { key: "jaggedOctaves",  label: "Jagged Octaves",  min: 1,    max: 6,    step: 1,     decimals: 0 },
-      { key: "caveScale",      label: "Cave Scale",      min: 20,   max: 160,  step: 1,     decimals: 0 },
-      { key: "caveThreshold",  label: "Cave Threshold",  min: 0,    max: 0.3,  step: 0.005, decimals: 3 },
-      { key: "caveDepthRange", label: "Cave Depth Range", min: 4,   max: 96,   step: 1,     decimals: 0 },
-      { key: "factorMin",      label: "Factor Min",      min: 0.1,  max: 4.0,  step: 0.05,  decimals: 2 },
-      { key: "factorMax",      label: "Factor Max",      min: 1.0,  max: 12.0, step: 0.1,   decimals: 1 },
+      {
+        key: "jaggedScale",    label: "Jagged Scale",    min: 6,    max: 60,   step: 1,     decimals: 0,
+        description:
+          "3D noise period for the trilerp jagged term, in voxels.\n" +
+          "Should be comparable to the corner spacing (4 horizontal, 8 vertical).\n" +
+          "↓ smaller = adjacent corners differ more = bumpier per cell, more cliffy\n" +
+          "↑ larger = neighbors read similar values = smoother per cell",
+      },
+      {
+        key: "jaggedFalloff",  label: "Jagged Falloff",  min: 4,    max: 64,   step: 1,     decimals: 0,
+        description:
+          "Vertical falloff of the jagged envelope around offset, in voxels.\n" +
+          "Outside ±this many voxels of the column's offset, jagged is zero.\n" +
+          "↑ larger = jagged contributes far above/below the surface (risk of floating chunks of solid in the sky)\n" +
+          "↓ smaller = jagged stays at the surface band only",
+      },
+      {
+        key: "jaggedOctaves",  label: "Jagged Octaves",  min: 1,    max: 6,    step: 1,     decimals: 0,
+        description:
+          "fBm octave count for the jagged 3D noise.\n" +
+          "↑ more = finer detail layered into the noise (slower)\n" +
+          "↓ fewer = simpler shapes",
+      },
+      {
+        key: "caveScale",      label: "Cave Scale",      min: 20,   max: 160,  step: 1,     decimals: 0,
+        description:
+          "3D noise period for the cave term, in voxels.\n" +
+          "↑ larger = bigger caverns, longer tunnels\n" +
+          "↓ smaller = tighter, narrower tunnels",
+      },
+      {
+        key: "caveThreshold",  label: "Cave Threshold",  min: 0,    max: 0.3,  step: 0.005, decimals: 3,
+        description:
+          "|noise| < threshold counts as inside a tunnel.\n" +
+          "↑ larger = wider tunnels, more caves overall\n" +
+          "↓ smaller = narrower, fewer caves\n" +
+          "0 = no caves at all",
+      },
+      {
+        key: "caveDepthRange", label: "Cave Depth Range", min: 4,   max: 96,   step: 1,     decimals: 0,
+        description:
+          "Voxels below sea level where the cave term reaches full strength.\n" +
+          "↑ larger = caves only appear deep underground\n" +
+          "↓ smaller = caves come right up near the surface",
+      },
+      {
+        key: "factorMin",      label: "Factor Min",      min: 0.1,  max: 4.0,  step: 0.05,  decimals: 2,
+        description:
+          "Lower clamp on the per-column factor (used in eroded plains).\n" +
+          "factor scales the base term `(offset - y) × factor` — i.e. how stiff the surface is.\n" +
+          "↑ higher = even plains have a stiff base = sharper plain-edge transitions\n" +
+          "↓ lower = soft, rolling plains where 3D noise dominates",
+      },
+      {
+        key: "factorMax",      label: "Factor Max",      min: 1.0,  max: 12.0, step: 0.1,   decimals: 1,
+        description:
+          "Upper clamp on the per-column factor (used in mountainous regions).\n" +
+          "Counterintuitive: HIGHER factor → SMOOTHER mountains, because the base\n" +
+          "term gets so stiff that jagged + detail noise can no longer flip the sign\n" +
+          "near the surface. LOWER factor → softer base → more chaos / overhangs.\n" +
+          "↑ higher = clean cliff faces, mountains track offset closely\n" +
+          "↓ lower = jagged and detail dominate, dramatic sub-voxel chaos",
+      },
     ],
   },
   {
@@ -145,6 +202,62 @@ interface Preset {
 
 const BUILT_IN_PRESETS: Preset[] = [
   { name: "Default", params: cloneParams(DEFAULT_PARAMS), builtIn: true },
+
+  // Soft, rolling, almost-heightmap-feel terrain. High factor on both ends
+  // means the base dominates → 3D noise can't flip signs → smooth surface.
+  // Tighter jaggedFalloff also keeps any residual jagged contribution close
+  // to the surface band so nothing floats.
+  {
+    name: "Smooth World", builtIn: true,
+    params: {
+      ...cloneParams(DEFAULT_PARAMS),
+      density: {
+        ...DEFAULT_PARAMS.density,
+        jaggedScale: 28,
+        jaggedFalloff: 14,
+        factorMin: 1.0,
+        factorMax: 5.0,
+      },
+    },
+  },
+
+  // The opposite end: low factor + small jaggedScale + wider falloff. The
+  // base is soft so jagged + detail dominate and produce extreme sub-voxel
+  // chaos. Use this to see what overhangs/spires the system can produce.
+  {
+    name: "Razor Peaks", builtIn: true,
+    params: {
+      ...cloneParams(DEFAULT_PARAMS),
+      density: {
+        ...DEFAULT_PARAMS.density,
+        jaggedScale: 9,
+        jaggedFalloff: 28,
+        factorMin: 0.3,
+        factorMax: 1.2,
+      },
+    },
+  },
+
+  // Floating-island vibe: very wide jaggedFalloff lets the jagged term
+  // contribute density far above the column's offset, so noise-positive
+  // pockets form floating solid above the regular surface.
+  {
+    name: "Sky Islands", builtIn: true,
+    params: {
+      ...cloneParams(DEFAULT_PARAMS),
+      density: {
+        ...DEFAULT_PARAMS.density,
+        jaggedScale: 16,
+        jaggedFalloff: 56,
+        jaggedOctaves: 4,
+        factorMin: 0.4,
+        factorMax: 1.4,
+      },
+    },
+  },
+
+  // Underground emphasis: caves come up near the surface and dominate
+  // deep regions. Pair with the in-game render radius to actually see them.
   {
     name: "Cave Heavy", builtIn: true,
     params: {
@@ -153,7 +266,7 @@ const BUILT_IN_PRESETS: Preset[] = [
         ...DEFAULT_PARAMS.density,
         caveScale: 40,
         caveThreshold: 0.16,
-        caveDepthRange: 24,
+        caveDepthRange: 18,
       },
     },
   },
@@ -529,7 +642,14 @@ export class DebugPanel {
 
     const label = document.createElement("span");
     label.style.color = "#aaa";
-    label.textContent = def.label;
+    if (def.description) {
+      label.textContent = def.label + " ⓘ";
+      label.style.cursor = "help";
+      label.style.borderBottom = "1px dotted #555";
+    } else {
+      label.textContent = def.label;
+    }
+    if (def.description) row.title = def.description;
 
     const right = document.createElement("div");
     right.style.cssText = "display:flex;align-items:center;gap:4px;";

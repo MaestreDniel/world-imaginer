@@ -2,25 +2,6 @@ import { type ClimateParams, DEFAULT_CLIMATE } from "./climate";
 import { type TerrainShape, DEFAULT_TERRAIN_SHAPE } from "./splines";
 import { type BiomePickerParams, DEFAULT_BIOME_PICKER } from "./biomeBoxes";
 
-export interface CaveParams {
-  /** Noise scale for tunnel sizing (larger = wider features). */
-  scale: number;
-  /** Number of fBm octaves. */
-  octaves: number;
-  /** Y-axis stretch factor: >1 elongates noise vertically → tunnels prefer horizontal. */
-  verticalStretch: number;
-  /** Base threshold |n|<t near the surface. Smaller = rarer surface openings. */
-  thresholdBase: number;
-  /** Maximum threshold at depth. Larger = wider deep networks. */
-  thresholdMax: number;
-  /** Per-block growth of threshold with depth. */
-  depthGain: number;
-  /** Minimum depth below the surface before caves can carve. Protects top blocks. */
-  minDepth: number;
-  /** Depth below which a verticality check filters horizontal near-surface tunnels. */
-  entryDepth: number;
-}
-
 export interface AquiferParams {
   /** Master toggle for aquifer/lake generation. */
   enabled: boolean;
@@ -88,7 +69,6 @@ export interface GenerationParams {
   shape: TerrainShapeParams;
   biomePicker: BiomePickerParams;
   extent: WorldExtentParams;
-  caves: CaveParams;
   aquifers: AquiferParams;
   biomes: BiomeParams;
   ores: OreParams;
@@ -108,16 +88,6 @@ export const DEFAULT_PARAMS: GenerationParams = {
   extent: {
     minHeight: -16,
     maxHeight: 104,
-  },
-  caves: {
-    scale: 60,
-    octaves: 2,
-    verticalStretch: 2.5,
-    thresholdBase: 0.015,
-    thresholdMax: 0.1,
-    depthGain: 0.008,
-    minDepth: 0,
-    entryDepth: 6,
   },
   aquifers: {
     enabled: false,

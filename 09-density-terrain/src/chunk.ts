@@ -724,7 +724,7 @@ function generateChunkDensity(
       const wz = wzOff + lz;
       const idx = lz * CHUNK_SIZE + lx;
       const sample = offsetFactor.sampleClimate(wx, wz);
-      columnFields[idx] = offsetFactor.fieldsFromClimate(sample);
+      columnFields[idx] = offsetFactor.fieldsFromClimate(sample, wx, wz);
       const { temp, humid } = tempHumidSampler(wx, wz);
       biomes[idx] = classifyBiome(
         sample.continentalness, sample.erosion, sample.peaksValleys,
@@ -738,8 +738,21 @@ function generateChunkDensity(
     }
   }
 
-  // ── 2. Coarse density grid + trilerp → solid mask ─────────────────
-  const solid = fillChunkDensity(chunkX, chunkY, chunkZ, offsetFactor, density, columnFields);
+  // ── 2. Per-column detail amplitude (biome.terrainDrama × jaggedness gate) ─
+  // The per-voxel detail noise (in fillChunkDensity) is what produces overhangs
+  // and surface texture. Scaling per column by biome lets us keep deserts/
+  // plains smooth while mountains/windswept get the rocky chaos.
+  const detailAmps = new Float32Array(CHUNK_SIZE * CHUNK_SIZE);
+  for (let i = 0; i < CHUNK_SIZE * CHUNK_SIZE; i++) {
+    const drama = BIOME_DEFS[biomes[i]].terrainDrama;
+    // Mix biome drama with jaggedness so even within a "Mountains" biome,
+    // the high-PV columns get more detail than the low-PV columns. Constant
+    // 0.04 keeps the product in the [0, ~1] range typical for jaggedness.
+    detailAmps[i] = drama * (0.5 + columnFields[i].jaggedness * 0.04);
+  }
+
+  // ── 3. Coarse density grid + trilerp → solid mask ─────────────────
+  const solid = fillChunkDensity(chunkX, chunkY, chunkZ, seed, offsetFactor, density, columnFields, detailAmps);
 
   // ── 3. Voxelize: solid → block, with depth tracked top-down per column.
   const heights = new Float64Array(CHUNK_SIZE * CHUNK_SIZE);

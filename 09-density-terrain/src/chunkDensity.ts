@@ -1,5 +1,15 @@
 import type { DensitySampler } from "./densityField";
 import type { OffsetFactorSampler, ColumnFields } from "./offsetFactor";
+import { createNoise } from "./perlin";
+
+// Per-voxel detail noise added on top of the trilerped density. The trilerp
+// can't represent sub-cell sign oscillation (linear interpolation between
+// 4×8×4-spaced corners is monotonic inside each cell), so all sub-cell detail
+// — overhangs, voxel-scale cliff irregularity, rocky outcrops — comes from
+// here. Larger scale = more coherent overhangs / less voxel-grain noise.
+const DETAIL_SCALE = 11;
+const DETAIL_AMP   = 8;
+const DETAIL_FALLOFF = 18;
 
 // CHUNK_SIZE is hardcoded here (matching chunk.ts:29) instead of imported,
 // to break a circular import: chunk.ts → chunkDensity.ts → chunk.ts. With
@@ -15,18 +25,22 @@ const CORNERS_Z = CHUNK_SIZE / CELL_Z + 1; // 5
 
 /**
  * Returns a Uint8Array of length CHUNK_SIZE^3 with 1 at solid voxels, 0 at air voxels.
- * Density is evaluated at 5x3x5 = 75 corner samples, then trilinearly interpolated
- * per voxel (sign-tested only — no scalar density retained).
+ * Density is evaluated at 5x3x5 = 75 corner samples, trilerped per voxel, then
+ * a per-voxel detail noise is added before the sign test.
  */
 export function fillChunkDensity(
   chunkX: number,
   chunkY: number,
   chunkZ: number,
+  seed: number,
   offsetFactor: OffsetFactorSampler,
   density: DensitySampler,
   /** Pre-computed column fields for the 16x16 footprint, length CHUNK_SIZE^2, indexed lz*CHUNK_SIZE+lx. */
   columnFields: ColumnFields[],
+  /** Per-column detail amplitude (typically biome.terrainDrama × DETAIL_AMP). Same indexing as columnFields. */
+  detailAmps: Float32Array,
 ): Uint8Array {
+  const detailNoise = createNoise(seed + 50);
   const solid = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
   const wxOff = chunkX * CHUNK_SIZE;
   const wyOff = chunkY * CHUNK_SIZE;
@@ -72,9 +86,12 @@ export function fillChunkDensity(
       const base01 = cyRow1 + cz * CORNERS_X;             // (cy+1, cz+0)
       const base11 = cyRow1 + (cz + 1) * CORNERS_X;       // (cy+1, cz+1)
       const solidRowBase = solidLyBase + lz * CHUNK_SIZE;
+      const wz = wzOff + lz;
+      const wy = wyOff + ly;
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const cx = (lx / CELL_X) | 0;
         const tx = (lx - cx * CELL_X) / CELL_X;
+        const wx = wxOff + lx;
 
         const c00 = corners[base00 + cx] * (1 - tx) + corners[base00 + cx + 1] * tx;
         const c10 = corners[base10 + cx] * (1 - tx) + corners[base10 + cx + 1] * tx;
@@ -84,7 +101,19 @@ export function fillChunkDensity(
         const c1 = c01 * (1 - tz) + c11 * tz;
         const d  = c0 * (1 - ty) + c1 * ty;
 
-        solid[solidRowBase + lx] = d >= 0 ? 1 : 0;
+        // Per-voxel detail noise. Scaled by both jaggedness (PV+erosion) and
+        // spireMask (low-erosion + high-continentalness, i.e. mountain climate).
+        // The spireMask term is what lets mountains/windswept get strong enough
+        // detail to produce real overhangs without making plains/forests noisy.
+        // Active in a y-band around offset so caves/sky stay clean.
+        const fields = columnFields[lz * CHUNK_SIZE + lx];
+        const dyFromSurface = Math.abs(wy - fields.offset);
+        const surfaceEnv = Math.max(0, 1 - dyFromSurface / DETAIL_FALLOFF);
+        const dramaAmp = fields.jaggedness * 0.05 + fields.spireMask * 2;
+        const detail = detailNoise.perlin3D(wx / DETAIL_SCALE, wy / DETAIL_SCALE, wz / DETAIL_SCALE)
+          * DETAIL_AMP * surfaceEnv * dramaAmp;
+
+        solid[solidRowBase + lx] = (d + detail) >= 0 ? 1 : 0;
       }
     }
   }

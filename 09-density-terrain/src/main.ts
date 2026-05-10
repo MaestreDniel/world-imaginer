@@ -46,13 +46,14 @@ if (import.meta.env.DEV) {
     const fields00 = buildFields(0, 0);
 
     // Deep underground chunk (cy = -8 → wy ∈ [-128, -113])
-    const deepSolid = fillChunkDensity(0, -8, 0, sampler, density, fields00);
+    const fakeDetailAmps = new Float32Array(CHUNK_SIZE * CHUNK_SIZE); // sanity-only, all zeros
+    const deepSolid = fillChunkDensity(0, -8, 0, 42, sampler, density, fields00, fakeDetailAmps);
     let deepCount = 0;
     for (let i = 0; i < deepSolid.length; i++) deepCount += deepSolid[i];
     console.log(`[09 sanity] deep chunk (0, -8, 0): ${deepCount}/4096 solid (expect ≫ 3500)`);
 
     // Sky chunk (cy = 10 → wy ∈ [160, 175])
-    const skySolid = fillChunkDensity(0, 10, 0, sampler, density, fields00);
+    const skySolid = fillChunkDensity(0, 10, 0, 42, sampler, density, fields00, fakeDetailAmps);
     let skyCount = 0;
     for (let i = 0; i < skySolid.length; i++) skyCount += skySolid[i];
     console.log(`[09 sanity] sky chunk (0, 10, 0): ${skyCount}/4096 solid (expect 0)`);

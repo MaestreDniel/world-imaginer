@@ -179,14 +179,21 @@ export const DEFAULT_PARAMS: GenerationParams = {
     treeDensity: 1.0,
   },
   density: {
-    jaggedScale: 80,
+    // jaggedScale must be comparable to the trilerp corner spacing (CELL_X/Z=4,
+    // CELL_Y=8) — otherwise neighboring corners read near-identical noise values
+    // and the trilerp produces a smooth surface no matter how high the gain.
+    // For overhangs/cliffs we want vertically-adjacent corners (8 voxels apart)
+    // to be able to flip sign relative to base — that needs either small scale
+    // or big amplitude. Pushing scale down to 12 gives ~67% of a noise period
+    // between vertical corners.
+    jaggedScale: 12,
     jaggedFalloff: 24,
     jaggedOctaves: 3,
     caveScale: 60,
     caveThreshold: 0.08,
     caveDepthRange: 32,
-    factorMin: 0.5,
-    factorMax: 6.0,
+    factorMin: 0.4,
+    factorMax: 2.0,
   },
   useDensityPipeline: true,
 };

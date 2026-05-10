@@ -104,6 +104,12 @@ export interface BiomeDef {
   decorationDensity: number;
   /** Weighted decoration choices. Empty = no decorations for this biome. */
   decorations: ReadonlyArray<DecorationChoice>;
+  /**
+   * 09 density-terrain only: per-biome scale on the per-voxel detail noise that
+   * produces overhangs and rocky surface texture. 0 = perfectly smooth surface
+   * (deserts, plains), 1 = full rocky chaos (mountains, windswept).
+   */
+  terrainDrama: number;
 }
 
 export const Biome = {
@@ -131,6 +137,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     subSurfaceBlock: Block.Sand,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
+    terrainDrama: 0.0,
   },
   [Biome.Beach]: {
     name: "Beach",
@@ -138,6 +145,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     subSurfaceBlock: Block.Sand,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
+    terrainDrama: 0.0,
   },
   [Biome.Desert]: {
     name: "Desert",
@@ -146,6 +154,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: true,
     decorationDensity: 0.04,
     decorations: [{ block: Block.DeadBush, weight: 1.0 }],
+    terrainDrama: 0.05,
   },
   [Biome.Savanna]: {
     name: "Savanna",
@@ -158,6 +167,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.TallGrass,    weight: 0.5 },
       { block: Block.FlowerYellow, weight: 0.1 },
     ],
+    terrainDrama: 0.1,
   },
   [Biome.Plains]: {
     name: "Plains",
@@ -171,6 +181,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.FlowerYellow, weight: 0.20 },
       { block: Block.FlowerBlue,   weight: 0.15 },
     ],
+    terrainDrama: 0.05,
   },
   [Biome.Forest]: {
     name: "Forest",
@@ -184,6 +195,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.Bush,      weight: 0.3 },
       { block: Block.FlowerRed, weight: 0.1 },
     ],
+    terrainDrama: 0.15,
   },
   [Biome.BirchForest]: {
     name: "Birch Forest",
@@ -197,6 +209,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.FlowerYellow, weight: 0.15 },
       { block: Block.FlowerBlue,   weight: 0.15 },
     ],
+    terrainDrama: 0.15,
   },
   [Biome.Taiga]: {
     name: "Taiga",
@@ -209,6 +222,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.TallGrass, weight: 0.3 },
       { block: Block.Bush,      weight: 0.1 },
     ],
+    terrainDrama: 0.25,
   },
   [Biome.Tundra]: {
     name: "Tundra",
@@ -221,6 +235,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.DeadBush, weight: 0.2 },
       { block: Block.FlowerBlue, weight: 0.1 },
     ],
+    terrainDrama: 0.2,
   },
   [Biome.Mountains]: {
     name: "Mountains",
@@ -232,6 +247,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.TallGrass,    weight: 0.6 },
       { block: Block.FlowerYellow, weight: 0.4 },
     ],
+    terrainDrama: 1.0,
   },
   [Biome.StonyPeaks]: {
     name: "Stony Peaks",
@@ -239,6 +255,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     subSurfaceBlock: Block.Stone,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
+    terrainDrama: 1.2,
   },
   [Biome.WindsweptHills]: {
     name: "Windswept Hills",
@@ -250,6 +267,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
       { block: Block.TallGrass, weight: 0.7 },
       { block: Block.Fern,      weight: 0.3 },
     ],
+    terrainDrama: 0.85,
   },
   [Biome.FrozenOcean]: {
     name: "Frozen Ocean",
@@ -257,6 +275,7 @@ export const BIOME_DEFS: Record<number, BiomeDef> = {
     subSurfaceBlock: Block.Sand,
     treeWood: null, treeLeaves: null, treeDensity: 0, cactus: false,
     decorationDensity: 0, decorations: [],
+    terrainDrama: 0.0,
   },
 };
 

@@ -382,17 +382,17 @@ export class DebugPanel {
     body.appendChild(splineToolbar.element);
 
     body.appendChild(this.buildSplineSection(
-      "Splines · Continentalness → Height",
+      "Splines · Continentalness → Offset",
       () => this.params.shape.shape.continent,
       (s) => { this.params.shape.shape.continent = s; },
     ));
     body.appendChild(this.buildAnchoredSection(
-      "Splines · Erosion (by Continentalness)",
+      "Splines · Erosion → Offset Bonus (by Continentalness)",
       () => this.params.shape.shape.erosionByContinent,
       (l) => { this.params.shape.shape.erosionByContinent = l; },
     ));
     body.appendChild(this.buildAnchoredSection(
-      "Splines · Peaks & Valleys (by Erosion)",
+      "Splines · Peaks & Valleys → Offset Wobble (by Erosion)",
       () => this.params.shape.shape.pvByErosion,
       (l) => { this.params.shape.shape.pvByErosion = l; },
     ));

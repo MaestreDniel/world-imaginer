@@ -18,27 +18,35 @@ export function createDensitySampler(
   const jaggedNoise = createNoise(seed + 30);
   const caveNoiseA  = createNoise(seed + 31);
   const caveNoiseB  = createNoise(seed + 32);
+  // 2D noise that picks rare columns where the cave system breaks through
+  // to the surface. Most columns stay sealed (full surface protection); a
+  // small fraction with entranceMask > ENTRANCE_THRESHOLD let caves carve
+  // up through the surface band, producing visible cave entries.
+  const entranceNoise = createNoise(seed + 33);
   const d = params.density;
+  const ENTRANCE_SCALE     = 80;
+  const ENTRANCE_THRESHOLD = 0.42;
 
   /**
-   * Cave strength as a function of y AND the column's surface offset.
+   * Cave strength as a function of y, the column's surface offset, and the
+   * column's entrance gate.
    *
-   * The previous version gated caves by global sea level, which is wrong with
-   * mountainous columns where offset can be y=80 — the eligible cave zone
-   * collapsed to a tiny band near sea level even though the column's actual
-   * underground extends from y=80 down to bedrock. Cave strength is now
-   * relative to the column's surface (offset), so any underground voxel can
-   * potentially be a cave.
+   * Most columns have a fully-sealed surface (depth < 4 returns 0). Columns
+   * where the 2D entrance gate is open (`entranceOpen=true`) let cs ramp up
+   * starting from depth=0, so caves can carve through to the surface and
+   * produce visible entries.
    *
    * Returns 0 outside the underground range, ramps to 1 at depth=caveDepthRange
    * below the surface, falls back to 0 in the 8 voxels above bedrock.
    */
-  function caveStrength(wy: number, offset: number): number {
+  function caveStrength(wy: number, offset: number, entranceOpen: boolean): number {
     const minHeight = params.extent.minHeight;
     const depthBelowSurface = offset - wy;
-    if (depthBelowSurface < 4) return 0;     // protect surface band
+    if (depthBelowSurface < 0) return 0;
     if (wy <= minHeight + 4) return 0;        // protect bedrock band
-    const ramp = Math.min(1, (depthBelowSurface - 4) / d.caveDepthRange);
+    const surfaceFloor = entranceOpen ? 0 : 4; // sealed columns: protect top 4 voxels
+    if (depthBelowSurface < surfaceFloor) return 0;
+    const ramp = Math.min(1, (depthBelowSurface - surfaceFloor) / d.caveDepthRange);
     const bedrockFalloff = Math.min(1, (wy - minHeight - 4) / 8);
     return ramp * bedrockFalloff;
   }
@@ -65,7 +73,9 @@ export function createDensitySampler(
     // anything because cs * m * factor (max ~0.16) is dwarfed by base (which
     // grows linearly with depth — `factor × depth_below_offset`).
     let density = base + jagged;
-    const cs = caveStrength(wy, offset);
+    const entranceVal = entranceNoise.fbm2D(wx / ENTRANCE_SCALE, wz / ENTRANCE_SCALE, 2, 0.5, 2.0);
+    const entranceOpen = entranceVal > ENTRANCE_THRESHOLD;
+    const cs = caveStrength(wy, offset, entranceOpen);
     if (cs > 0) {
       // Two complementary cave shapes:
       //   1. "Cheese" — single 3D iso-surface from one noise. Large

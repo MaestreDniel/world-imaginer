@@ -1,7 +1,11 @@
-import { CHUNK_SIZE } from "./chunk";
 import type { DensitySampler } from "./densityField";
 import type { OffsetFactorSampler, ColumnFields } from "./offsetFactor";
 
+// CHUNK_SIZE is hardcoded here (matching chunk.ts:29) instead of imported,
+// to break a circular import: chunk.ts → chunkDensity.ts → chunk.ts. With
+// the import, the CORNERS_* constants below would dereference an undefined
+// CHUNK_SIZE during the temporal-dead-zone window of module initialization.
+const CHUNK_SIZE = 16;
 const CELL_X = 4;
 const CELL_Y = 8;
 const CELL_Z = 4;

@@ -1,4 +1,3 @@
-import { type ErosionConfig, DEFAULT_EROSION } from "./erosion";
 import { type ClimateParams, DEFAULT_CLIMATE } from "./climate";
 import { type TerrainShape, DEFAULT_TERRAIN_SHAPE } from "./splines";
 import { type BiomePickerParams, DEFAULT_BIOME_PICKER } from "./biomeBoxes";
@@ -35,12 +34,6 @@ export interface AquiferParams {
   levelAmplitude: number;
   /** Baseline Y offset of the local water surface (relative to global waterLevel). */
   levelOffset: number;
-}
-
-export interface RiverParams {
-  voronoiScale: number;
-  edgeThreshold: number;
-  maxCarveDepth: number;
 }
 
 export interface BiomeParams {
@@ -81,17 +74,6 @@ export interface VegetationParams {
   treeDensity: number;
 }
 
-export interface ErosionParams {
-  enabled: boolean;
-  droplets: number;
-  erosionRate: number;
-  depositionRate: number;
-  inertia: number;
-  maxLifetime: number;
-  evaporationRate: number;
-  gravity: number;
-}
-
 export interface WorldExtentParams {
   minHeight: number;
   maxHeight: number;
@@ -106,16 +88,12 @@ export interface GenerationParams {
   shape: TerrainShapeParams;
   biomePicker: BiomePickerParams;
   extent: WorldExtentParams;
-  erosion: ErosionParams;
   caves: CaveParams;
   aquifers: AquiferParams;
-  rivers: RiverParams;
   biomes: BiomeParams;
   ores: OreParams;
   vegetation: VegetationParams;
   density: DensityParams;
-  /** When true, chunk.ts uses the 3D density pipeline; when false, the legacy heightmap pipeline. */
-  useDensityPipeline: boolean;
 }
 
 export const DEFAULT_PARAMS: GenerationParams = {
@@ -130,16 +108,6 @@ export const DEFAULT_PARAMS: GenerationParams = {
   extent: {
     minHeight: -16,
     maxHeight: 104,
-  },
-  erosion: {
-    enabled: true,
-    droplets: 15,
-    erosionRate: 0.06,
-    depositionRate: 0.2,
-    inertia: 0.57,
-    maxLifetime: 10,
-    evaporationRate: 0.06,
-    gravity: 20,
   },
   caves: {
     scale: 60,
@@ -158,11 +126,6 @@ export const DEFAULT_PARAMS: GenerationParams = {
     levelScale: 800,
     levelAmplitude: 15,
     levelOffset: 0,
-  },
-  rivers: {
-    voronoiScale: 240,
-    edgeThreshold: 0.1,
-    maxCarveDepth: 5,
   },
   biomes: {
     tempHumidityScale: 480,
@@ -195,23 +158,7 @@ export const DEFAULT_PARAMS: GenerationParams = {
     factorMin: 0.4,
     factorMax: 2.0,
   },
-  useDensityPipeline: true,
 };
-
-/** Convert ErosionParams to the full ErosionConfig expected by erode(). */
-export function toErosionConfig(ep: ErosionParams): ErosionConfig {
-  return {
-    droplets: ep.droplets,
-    maxLifetime: ep.maxLifetime,
-    inertia: ep.inertia,
-    erosionRate: ep.erosionRate,
-    depositionRate: ep.depositionRate,
-    evaporationRate: ep.evaporationRate,
-    gravity: ep.gravity,
-    minSlope: DEFAULT_EROSION.minSlope,
-    erosionRadius: DEFAULT_EROSION.erosionRadius,
-  };
-}
 
 /** Deep-clone params (all plain objects, no methods). */
 export function cloneParams(p: GenerationParams): GenerationParams {

@@ -1,7 +1,7 @@
 import { Block } from "./blocks";
 import { createNoise } from "./perlin";
 import { type BiomeParams, type GenerationParams, DEFAULT_PARAMS } from "./generationParams";
-import { createTerrainShaper } from "./terrainShape";
+import { createOffsetFactorSampler } from "./offsetFactor";
 import {
   pickBiome,
   type ClimatePoint,
@@ -406,12 +406,12 @@ export interface BiomeDebugInfo {
 }
 
 export function createBiomeDebugSampler(seed: number, params: GenerationParams, _waterLevel: number) {
-  const terrainShaper = createTerrainShaper(seed, params);
+  const offsetFactor = createOffsetFactorSampler(seed, params);
   const tempHumidSampler = createBiomeSampler(seed, params.biomes);
 
   return function getBiomeDebug(wx: number, wz: number): BiomeDebugInfo {
-    const sample = terrainShaper.sampleClimate(wx, wz);
-    const height = terrainShaper.heightFromClimate(sample);
+    const sample = offsetFactor.sampleClimate(wx, wz);
+    const height = offsetFactor.offsetAt(wx, wz);
     const { temp, humid } = tempHumidSampler(wx, wz);
     const biome = classifyBiome(
       sample.continentalness, sample.erosion, sample.peaksValleys,

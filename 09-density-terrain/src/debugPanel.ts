@@ -61,19 +61,6 @@ function climateSection(
 
 const SECTIONS: SectionDef[] = [
   {
-    id: "erosion", label: "Erosion", paramsKey: "erosion", expanded: true,
-    toggle: { key: "enabled", label: "Enabled" },
-    sliders: [
-      { key: "droplets",        label: "Droplets",         min: 0,    max: 100, step: 5,    decimals: 0 },
-      { key: "erosionRate",     label: "Erosion Rate",     min: 0,    max: 1,    step: 0.01,  decimals: 2 },
-      { key: "depositionRate",  label: "Deposition Rate",  min: 0,    max: 1,    step: 0.01,  decimals: 2 },
-      { key: "inertia",         label: "Inertia",          min: 0,    max: 1,    step: 0.01,  decimals: 2 },
-      { key: "maxLifetime",     label: "Max Lifetime",     min: 10,   max: 100,  step: 1,     decimals: 0 },
-      { key: "evaporationRate", label: "Evaporation Rate", min: 0,    max: 0.1,  step: 0.005, decimals: 3 },
-      { key: "gravity",         label: "Gravity",          min: 1,    max: 30,   step: 1,     decimals: 0 },
-    ],
-  },
-  {
     id: "extent", label: "World Extent", paramsKey: "extent", expanded: false,
     sliders: [
       { key: "minHeight", label: "Min Height", min: -128, max:   0, step: 1, decimals: 0 },
@@ -102,14 +89,6 @@ const SECTIONS: SectionDef[] = [
       { key: "levelScale",        label: "Level Scale",        min: 100, max: 2000, step: 20,   decimals: 0 },
       { key: "levelAmplitude",    label: "Level Amplitude",    min: 0,   max: 30,  step: 0.5,  decimals: 1 },
       { key: "levelOffset",       label: "Level Offset",       min: -20, max: 30,  step: 0.5,  decimals: 1 },
-    ],
-  },
-  {
-    id: "rivers", label: "Rivers", paramsKey: "rivers", expanded: false,
-    sliders: [
-      { key: "voronoiScale",  label: "Voronoi Scale",   min: 50,   max: 500, step: 10,   decimals: 0 },
-      { key: "edgeThreshold", label: "Edge Threshold",   min: 0.01, max: 0.2, step: 0.01, decimals: 2 },
-      { key: "maxCarveDepth", label: "Max Carve Depth",  min: 1,    max: 15,  step: 1,    decimals: 0 },
     ],
   },
   {
@@ -953,15 +932,12 @@ export class DebugPanel {
             shape:       { ...DEFAULT_PARAMS.shape,       ...(raw.shape       ?? {}) },
             biomePicker: { ...DEFAULT_PARAMS.biomePicker, ...(raw.biomePicker ?? {}) },
             extent:      { ...DEFAULT_PARAMS.extent,      ...(raw.extent      ?? {}) },
-            erosion:     { ...DEFAULT_PARAMS.erosion,     ...(raw.erosion     ?? {}) },
             caves:       { ...DEFAULT_PARAMS.caves,       ...(raw.caves       ?? {}) },
             aquifers:    { ...DEFAULT_PARAMS.aquifers,    ...(raw.aquifers    ?? {}) },
-            rivers:      { ...DEFAULT_PARAMS.rivers,      ...(raw.rivers      ?? {}) },
             biomes:      { ...DEFAULT_PARAMS.biomes,      ...(raw.biomes      ?? {}) },
             ores:        { ...DEFAULT_PARAMS.ores,        ...(raw.ores        ?? {}) },
             vegetation:  { ...DEFAULT_PARAMS.vegetation,  ...(raw.vegetation  ?? {}) },
             density:     { ...DEFAULT_PARAMS.density,     ...(raw.density     ?? {}) },
-            useDensityPipeline: raw.useDensityPipeline ?? DEFAULT_PARAMS.useDensityPipeline,
           };
           this.presets.push({ name: candidate, params, builtIn: false });
           saveUserPresets(this.presets);

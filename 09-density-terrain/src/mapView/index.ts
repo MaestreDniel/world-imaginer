@@ -1,6 +1,6 @@
 import { type GenerationParams } from "../generationParams";
 import { Biome, classifyBiome, createBiomeSampler, BIOME_DEFS, type BiomeId } from "../biomes";
-import { createTerrainShaper } from "../terrainShape";
+import { createOffsetFactorSampler } from "../offsetFactor";
 import { type Viewport, ZOOM_LEVELS, pixelToWorld, zoomIn, zoomOut } from "./viewport";
 import { drawMarkerLayers, renderMap, renderMapRows, type ClassifyFn } from "./render";
 
@@ -26,11 +26,11 @@ const BIOME_NAMES: Record<BiomeId, string> = Object.fromEntries(
 void Biome;   // kept around in case a future feature needs the value
 
 function buildClassifier(seed: number, params: GenerationParams): ClassifyFn {
-  const shaper  = createTerrainShaper(seed, params);
+  const offsetFactor = createOffsetFactorSampler(seed, params);
   const climate = createBiomeSampler(seed, params.biomes);
   return (wx, wz) => {
-    const sample = shaper.sampleClimate(wx, wz);
-    const height = shaper.heightFromClimate(sample);
+    const sample = offsetFactor.sampleClimate(wx, wz);
+    const height = offsetFactor.offsetAt(wx, wz);
     const { temp, humid } = climate(wx, wz);
     const biome = classifyBiome(
       sample.continentalness, sample.erosion, sample.peaksValleys,
@@ -250,10 +250,10 @@ export function createMapView(cfg: MapViewConfig): MapViewHandle {
     const { wx, wz } = pixelToWorld(viewport, hoverPx, hoverPy);
     // Sample full climate for a richer readout (extra cost is one mousemove sample).
     const { seed, params } = cfg.getSeedAndParams();
-    const shaper  = createTerrainShaper(seed, params);
+    const offsetFactor = createOffsetFactorSampler(seed, params);
     const climate = createBiomeSampler(seed, params.biomes);
-    const sample = shaper.sampleClimate(wx, wz);
-    const height = shaper.heightFromClimate(sample);
+    const sample = offsetFactor.sampleClimate(wx, wz);
+    const height = offsetFactor.offsetAt(wx, wz);
     const { temp, humid } = climate(wx, wz);
     const biome = classifyBiome(
       sample.continentalness, sample.erosion, sample.peaksValleys,

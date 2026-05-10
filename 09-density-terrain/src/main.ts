@@ -1,4 +1,3 @@
-import type { ColumnFields } from "./offsetFactor";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { World } from "./world";
@@ -14,51 +13,6 @@ import {
   sharedDayNightUniforms,
   type DayNightState,
 } from "./dayNight";
-
-if (import.meta.env.DEV) {
-  // TEMP: offsetFactor sanity check (removed in Task 10)
-  (async () => {
-    const { createOffsetFactorSampler } = await import("./offsetFactor");
-    const sampler = createOffsetFactorSampler(42, DEFAULT_PARAMS);
-    console.log("[09 sanity] offsetFactor at origin:", sampler.fieldsAt(0, 0));
-    console.log("[09 sanity] offsetFactor at (1000, 1000):", sampler.fieldsAt(1000, 1000));
-    console.log("[09 sanity] offsetFactor at (-2000, 500):", sampler.fieldsAt(-2000, 500));
-    const { createDensitySampler } = await import("./densityField");
-    const density = createDensitySampler(42, DEFAULT_PARAMS, sampler, DEFAULT_CONFIG.waterLevel);
-    console.log("[09 sanity] density deep underground (0, -100, 0):", density.sampleDensity(0, -100, 0).toFixed(2), "(should be > 0)");
-    console.log("[09 sanity] density high in sky (0, 200, 0):", density.sampleDensity(0, 200, 0).toFixed(2), "(should be < 0)");
-    const f = sampler.fieldsAt(1000, 1000);
-    console.log("[09 sanity] offset(1000,1000) =", f.offset.toFixed(2), "density at y=offset:", density.sampleDensity(1000, f.offset, 1000).toFixed(2), "(should be ≈ 0 ± jaggedness)");
-
-    const { fillChunkDensity } = await import("./chunkDensity");
-    const { CHUNK_SIZE } = await import("./chunk");
-
-    // Build columnFields for chunk (cx, cz)
-    function buildFields(cx: number, cz: number): ColumnFields[] {
-      const out: ColumnFields[] = [];
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          out.push(sampler.fieldsAt(cx * CHUNK_SIZE + lx, cz * CHUNK_SIZE + lz));
-        }
-      }
-      return out;
-    }
-    const fields00 = buildFields(0, 0);
-
-    // Deep underground chunk (cy = -8 → wy ∈ [-128, -113])
-    const fakeDetailAmps = new Float32Array(CHUNK_SIZE * CHUNK_SIZE); // sanity-only, all zeros
-    const deepSolid = fillChunkDensity(0, -8, 0, 42, sampler, density, fields00, fakeDetailAmps);
-    let deepCount = 0;
-    for (let i = 0; i < deepSolid.length; i++) deepCount += deepSolid[i];
-    console.log(`[09 sanity] deep chunk (0, -8, 0): ${deepCount}/4096 solid (expect ≫ 3500)`);
-
-    // Sky chunk (cy = 10 → wy ∈ [160, 175])
-    const skySolid = fillChunkDensity(0, 10, 0, 42, sampler, density, fields00, fakeDetailAmps);
-    let skyCount = 0;
-    for (let i = 0; i < skySolid.length; i++) skyCount += skySolid[i];
-    console.log(`[09 sanity] sky chunk (0, 10, 0): ${skyCount}/4096 solid (expect 0)`);
-  })();
-}
 
 // ── Scene ────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -392,7 +346,6 @@ function animate(timestamp: number) {
         `Chunk: ${Math.floor(pos.x / CHUNK_SIZE)}, ${Math.floor(pos.y / CHUNK_SIZE)}, ${Math.floor(pos.z / CHUNK_SIZE)}<br>` +
         `Biome: ${biomeName}<br>` +
         `Seed: ${currentSeed}<br>` +
-        `Erosion: ${currentParams.erosion.enabled ? 'ON' : 'OFF'} (${currentParams.erosion.droplets} drops)<br><br>` +
         `Temperature: ${debug.temperature.toFixed(3)}<br>` +
         `Humidity: ${debug.humidity.toFixed(3)}<br>` +
         `Continentalness: ${debug.continentalness.toFixed(3)}<br>` +

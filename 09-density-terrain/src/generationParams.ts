@@ -188,7 +188,7 @@ export const DEFAULT_PARAMS: GenerationParams = {
     factorMin: 0.5,
     factorMax: 6.0,
   },
-  useDensityPipeline: false,
+  useDensityPipeline: true,
 };
 
 /** Convert ErosionParams to the full ErosionConfig expected by erode(). */

@@ -61,19 +61,34 @@ export function evalAnchored(list: AnchoredSpline[], key: number, innerX: number
   return lerp(evalSpline(a.spline, innerX), evalSpline(b.spline, innerX), t);
 }
 
-/** Default shape. Intended as a starting point users can tweak at runtime. */
+/**
+ * Default shape. In 09 the y-values are reinterpreted as inputs to the density
+ * field, not heights:
+ *   - continent.y is the primary OFFSET (target ground y) per continentalness band.
+ *     Steep risers between flat plateaus yield distinct ocean / shore / inland regimes.
+ *   - erosionByContinent.y is an offset bonus per erosion value, weighted 0.4 in
+ *     offsetFactor.ts. Erosion ALSO independently drives the density `factor`
+ *     (cliff steepness) — that mapping lives in offsetFactor, not in this spline.
+ *   - pvByErosion.y is an offset wobble per (erosion, peaksValleys), weighted 0.2.
+ *     The actual JAGGEDNESS (3D noise amplitude) is computed in offsetFactor as
+ *     max(0, peaksValleys) * erosionDamp — independent of this spline.
+ * Silhouette character (irregular peaks, cliffs, overhangs) comes from the 3D
+ * noise term in densityField.ts, not from these splines.
+ */
 export const DEFAULT_TERRAIN_SHAPE: TerrainShape = {
   continent: [
-    { x: -1.0, y: -40 },
-    { x: -0.3, y: -9 },
-    { x: -0.05, y:  -5 },
-    { x:  0.3, y:  40 },
-    { x:  0.4, y:  90 },
-    { x:  1.0, y: 100 },
+    { x: -1.0, y: -45 },
+    { x: -0.4, y: -30 },
+    { x: -0.18, y:  -8 },
+    { x: -0.12, y:   2 },
+    { x:  0.05, y:   4 },
+    { x:  0.10, y:  20 },
+    { x:  0.45, y:  60 },
+    { x:  1.0, y:  85 },
   ],
   erosionByContinent: [
-    { anchor: -0.2, spline: [{ x: -1, y:  2 }, { x: 0, y: 0 }, { x: 1, y:  -1 }] },
-    { anchor:  0.4, spline: [{ x: -1, y: 40 }, { x: 0, y: 0 }, { x: 1, y: -10 }] },
+    { anchor: -0.2, spline: [{ x: -1, y:   2 }, { x: 0, y:  0 }, { x: 1, y:  -1 }] },
+    { anchor:  0.4, spline: [{ x: -1, y:  18 }, { x: 0, y:  0 }, { x: 1, y:  -8 }] },
   ],
   pvByErosion: [
     { anchor: -0.5, spline: [{ x: -1, y: -10 }, { x: 0, y: 0 }, { x: 1, y: 15 }] },

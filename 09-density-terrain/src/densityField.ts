@@ -67,14 +67,28 @@ export function createDensitySampler(
     let density = base + jagged;
     const cs = caveStrength(wy, offset);
     if (cs > 0) {
+      // Two complementary cave shapes:
+      //   1. "Cheese" — single 3D iso-surface from one noise. Large
+      //      coherent caverns (a band of voxels where |n1| < threshold).
+      //   2. "Noodle" — intersection of two noises near zero. Thin twisty
+      //      tunnels (1D curves in 3D space, inflated by threshold).
+      // Without (1) you only get the rare pockets where both noises happen
+      // to align — that was the bug producing only "air pocket" caves.
       const n1 = caveNoiseA.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);
       const n2 = caveNoiseB.fbm3D(wx / d.caveScale, wy / d.caveScale, wz / d.caveScale, 2, 0.5, 2.0);
-      const inside = Math.max(0, d.caveThreshold - Math.max(Math.abs(n1), Math.abs(n2)));
+
+      const cheese = Math.max(0, d.caveThreshold - Math.abs(n1));
+      // Noodle threshold is tighter (0.55×) — full threshold here would carve
+      // roughly half the world. Multiplied by 0.9 in the final mix to keep
+      // cheese as the dominant cave type.
+      const noodleThreshold = d.caveThreshold * 0.55;
+      const noodle = Math.max(0, noodleThreshold - Math.max(Math.abs(n1), Math.abs(n2)));
+
+      const inside = Math.max(cheese, (noodle / noodleThreshold) * d.caveThreshold * 0.9);
       if (inside > 0) {
-        // carveFraction ∈ [0, 1]: 1 means tunnel core (full carve), 0 means just
-        // outside the threshold. Multiplied by 1.6 so even partial-strength tunnels
-        // can flip the sign — produces a soft halo of "near-air" around carved
-        // tunnel cores rather than a hard threshold ring.
+        // carveFraction ∈ [0, 1]: 1 means cave core (full carve). Multiplier
+        // 1.6 means even partial-strength tunnels flip the sign, producing a
+        // soft halo of "near-air" around carved cores rather than a hard ring.
         const carveFraction = cs * (inside / d.caveThreshold);
         density -= Math.abs(base) * carveFraction * 1.6;
       }

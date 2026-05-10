@@ -958,6 +958,198 @@ function generateChunkDensity(
     }
   }
 
+  const treeMask = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
+
+  // ── Structure placement (single chunk-center attempt) ──────────────
+  const structNoise = createNoise(seed + 6);
+  const structVal = structNoise.perlin2D(chunkX * 1.17, chunkZ * 1.17);
+  const centerLx = Math.floor(CHUNK_SIZE / 2);
+  const centerLz = Math.floor(CHUNK_SIZE / 2);
+  const centerColIdx = centerLz * CHUNK_SIZE + centerLx;
+  const centerBiome = biomes[centerColIdx];
+  const centerSurfaceH = heights[centerColIdx];
+  if (centerSurfaceH !== -Infinity) {
+    const centerSurfLocal = Math.floor(centerSurfaceH) - wyOff;
+    if (centerSurfLocal >= 4 && centerSurfLocal < CHUNK_SIZE - 8 && centerSurfaceH > waterLevel) {
+      if (centerBiome === Biome.Desert && structVal > 0.7) {
+        placePyramid(data, centerLx, centerSurfLocal, centerLz);
+      } else if (centerBiome === Biome.Tundra && structVal > 0.55) {
+        placeIgloo(data, centerLx, centerSurfLocal, centerLz);
+      } else if ((centerBiome === Biome.Plains || centerBiome === Biome.Savanna) && structVal > 0.6) {
+        placeHouse(data, centerLx, centerSurfLocal, centerLz);
+        if (structVal > 0.4 && centerLx + 10 < CHUNK_SIZE - 1 && centerLz + 8 < CHUNK_SIZE - 1) {
+          placeHouse(data, centerLx + 8, centerSurfLocal, centerLz + 6);
+        }
+      }
+    }
+  }
+
+  // ── Tree placement (soft-surface y for both in-chunk and halo) ─────
+  const MAX_TREE_REACH = 10;
+  const CANOPY_HALO = 2;
+  const POISSON_RADIUS = 1;
+  const NOISE_HALO = CANOPY_HALO + POISSON_RADIUS;
+  const NOISE_SIDE = CHUNK_SIZE + 2 * NOISE_HALO;
+  const treeNoise = createNoise(seed + 3);
+  const candidate = new Uint8Array(NOISE_SIDE * NOISE_SIDE);
+  const userVeg = config.params.vegetation.treeDensity;
+  const GLOBAL_TREE_DENSITY = 0.40;
+
+  for (let lz = -NOISE_HALO; lz < CHUNK_SIZE + NOISE_HALO; lz++) {
+    for (let lx = -NOISE_HALO; lx < CHUNK_SIZE + NOISE_HALO; lx++) {
+      const wx = wxOff + lx;
+      const wz = wzOff + lz;
+      const v = treeNoise.perlin2D(wx / 2.5, wz / 2.5);
+      if ((v + 1) * 0.5 < GLOBAL_TREE_DENSITY) {
+        candidate[(lz + NOISE_HALO) * NOISE_SIDE + (lx + NOISE_HALO)] = 1;
+      }
+    }
+  }
+
+  function priorityHash(wx: number, wz: number): number {
+    let h = (Math.imul(wx | 0, 374761393) ^ Math.imul(wz | 0, 668265263) ^ Math.imul(seed | 0, 2654435761)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return (h ^ (h >>> 16)) >>> 0;
+  }
+
+  function unitHash(wx: number, wz: number): number {
+    let h = (Math.imul(wx | 0, 73856093) ^ Math.imul(wz | 0, 19349663) ^ Math.imul(seed | 0, 83492791)) | 0;
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^ (h >>> 16)) >>> 0) / 0x100000000;
+  }
+
+  function isSelected(lx: number, lz: number): boolean {
+    const cIdx = (lz + NOISE_HALO) * NOISE_SIDE + (lx + NOISE_HALO);
+    if (!candidate[cIdx]) return false;
+    const wx = wxOff + lx;
+    const wz = wzOff + lz;
+    const p = priorityHash(wx, wz);
+    for (let dz = -POISSON_RADIUS; dz <= POISSON_RADIUS; dz++) {
+      for (let dx = -POISSON_RADIUS; dx <= POISSON_RADIUS; dx++) {
+        if (dx === 0 && dz === 0) continue;
+        const nIdx = (lz + dz + NOISE_HALO) * NOISE_SIDE + (lx + dx + NOISE_HALO);
+        if (!candidate[nIdx]) continue;
+        const np = priorityHash(wx + dx, wz + dz);
+        if (np >= p) return false;
+      }
+    }
+    return true;
+  }
+
+  for (let lz = -CANOPY_HALO; lz < CHUNK_SIZE + CANOPY_HALO; lz++) {
+    for (let lx = -CANOPY_HALO; lx < CHUNK_SIZE + CANOPY_HALO; lx++) {
+      if (!isSelected(lx, lz)) continue;
+      const wx = wxOff + lx;
+      const wz = wzOff + lz;
+      const inChunk = (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE);
+
+      // Soft-surface lookup for both in-chunk and halo (design §4).
+      const softY = offsetFactor.offsetAt(wx, wz);
+      const surfaceH = softY;
+
+      let biomeId: number;
+      if (inChunk) {
+        biomeId = biomes[lz * CHUNK_SIZE + lx];
+      } else {
+        const sample = offsetFactor.sampleClimate(wx, wz);
+        const { temp, humid } = tempHumidSampler(wx, wz);
+        biomeId = classifyBiome(
+          sample.continentalness, sample.erosion, sample.peaksValleys,
+          temp, humid, config.params.biomePicker,
+        );
+      }
+      const biomeDef = BIOME_DEFS[biomeId];
+
+      if (surfaceH <= waterLevel) continue;
+      if (biomeId === Biome.Mountains && surfaceH > 30) continue;
+      const surfaceLocal = Math.floor(surfaceH) - wyOff;
+
+      if (biomeDef.cactus) {
+        if (!inChunk) continue;
+        const accept = Math.min(1, (0.04 * userVeg) / GLOBAL_TREE_DENSITY);
+        if (unitHash(wx, wz) >= accept) continue;
+        if (surfaceLocal < 0 || surfaceLocal >= CHUNK_SIZE - 1) continue;
+        const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
+        if (surfBlock !== biomeDef.surfaceBlock) continue;
+        placeCactus(data, lx, surfaceLocal, lz, wx, wz);
+        treeMask[lz * CHUNK_SIZE + lx] = 1;
+        continue;
+      }
+
+      if (biomeDef.treeWood === null || biomeDef.treeLeaves === null) continue;
+
+      const accept = Math.min(1, (biomeDef.treeDensity * userVeg) / GLOBAL_TREE_DENSITY);
+      if (unitHash(wx, wz) >= accept) continue;
+
+      if (surfaceLocal >= CHUNK_SIZE) continue;
+      if (surfaceLocal + MAX_TREE_REACH < 0) continue;
+
+      if (inChunk && surfaceLocal >= 0 && surfaceLocal < CHUNK_SIZE) {
+        const surfIdx = chunkIndex(lx, surfaceLocal, lz);
+        const sb = data[surfIdx];
+        if (sb === Block.Air) {
+          data[surfIdx] = biomeDef.surfaceBlock === Block.Snow ? Block.Snow : biomeDef.subSurfaceBlock;
+        } else if (sb === biomeDef.surfaceBlock && sb !== Block.Snow) {
+          data[surfIdx] = biomeDef.subSurfaceBlock;
+        }
+      }
+
+      const wood = biomeDef.treeWood;
+      const leaves = biomeDef.treeLeaves;
+      if (wood === Block.SpruceWood) {
+        placeSpruceTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      } else if (wood === Block.BirchWood) {
+        placeBirchTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      } else {
+        placeOakTree(data, lx, surfaceLocal, lz, wood, leaves, wx, wz);
+      }
+
+      if (inChunk) treeMask[lz * CHUNK_SIZE + lx] = 1;
+    }
+  }
+
+  // ── Surface decorations (flowers / tall grass / etc.) ──────────────
+  if (config.params.vegetation.enabled) {
+    const decoNoise = createNoise(seed + 16);
+    const globalDensity = config.params.vegetation.globalDensity;
+    for (let lz = 1; lz < CHUNK_SIZE - 1; lz++) {
+      for (let lx = 1; lx < CHUNK_SIZE - 1; lx++) {
+        const colIdx = lz * CHUNK_SIZE + lx;
+        const biomeDef = BIOME_DEFS[biomes[colIdx]];
+        if (biomeDef.decorations.length === 0) continue;
+        if (heights[colIdx] === -Infinity || heights[colIdx] <= waterLevel) continue;
+        if (treeMask[colIdx]) continue;
+
+        const surfaceLocal = Math.floor(heights[colIdx]) - wyOff;
+        if (surfaceLocal < 0 || surfaceLocal >= CHUNK_SIZE - 1) continue;
+        const surfBlock = data[chunkIndex(lx, surfaceLocal, lz)];
+        if (surfBlock !== biomeDef.surfaceBlock) continue;
+        const aboveIdx = chunkIndex(lx, surfaceLocal + 1, lz);
+        if (data[aboveIdx] !== Block.Air) continue;
+
+        const wx = wxOff + lx;
+        const wz = wzOff + lz;
+        const decoVal = (decoNoise.perlin2D(wx / 1.7, wz / 1.7) + 1) * 0.5;
+        const threshold = biomeDef.decorationDensity * globalDensity;
+        if (decoVal >= threshold) continue;
+
+        let totalWeight = 0;
+        for (const c of biomeDef.decorations) totalWeight += c.weight;
+        const hash = ((wx * 374761393) ^ (wz * 668265263)) >>> 0;
+        const r = ((hash % 100000) / 100000) * totalWeight;
+        let acc = 0;
+        let chosen: number = biomeDef.decorations[0].block;
+        for (const c of biomeDef.decorations) {
+          acc += c.weight;
+          if (r < acc) { chosen = c.block; break; }
+        }
+
+        data[aboveIdx] = chosen;
+      }
+    }
+  }
+
   const { grassColors } = computeBlendedGrassColors(
     wxOff, wzOff, CHUNK_SIZE,
     tempHumidSampler,
